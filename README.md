@@ -5,5 +5,8 @@
 2. [TCP的三次握手及超时重传思想](https://github.com/iam2c/blog/blob/master/TCP%E7%9A%84%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B%E5%8F%8A%E8%B6%85%E6%97%B6%E9%87%8D%E4%BC%A0%E6%80%9D%E6%83%B3.md)
 
 # TODO
-1. HTTPS及非对称加密的巧妙
-2. ???
+1. HTTPS及非对称加密的巧妙设计
+2. 一次Web请求返回Access Denied的解决过程
+3. 分层思想及其应用
+4. “分而治之”的思想
+5. ...
