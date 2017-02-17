@@ -66,7 +66,7 @@ SCRIPT_FILENAME参数没错，但是传了PATH_INFO和PATH_TRANSLATED。
 
 其中，PATH_TRANSLATED 仅在 PATH_INFO。
 
-# 0x04 总结
+# 0x03 总结
 > 没事不要乱改东西，保持默认就好。除非你很有把握。
 
 > 别人的“成功”未必都能复制的，但是失败肯定是有原因的。
