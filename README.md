@@ -7,4 +7,5 @@
 1. HTTPS及非对称加密的巧妙设计
 2. 分层思想及其应用
 3. “分而治之”的思想
-4. ...
+4. Authentication头丢了！谈一次Apache+fcgid的排查过程
+5. phpredis扩展连接redis服务器最后发送RST包的排查过程
