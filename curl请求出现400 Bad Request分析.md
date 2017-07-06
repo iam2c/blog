@@ -14,6 +14,7 @@ print_r($result);
 ```
 
 执行结果：
+
 ![image](https://raw.githubusercontent.com/iam2c/blog/master/assets/1/20170706145243.png)
 
 我之前也遇到过这个问题，就是本来用GET请求的用POST方式去请求，但是那时候忙，没有空去找原因。今天不是那么忙，找找这个原因。
@@ -32,11 +33,17 @@ Windows环境：5.6.30-nts-Win32，curl:7.51.0。如下图：
 
 #### 2.这段错误怎么来的？
 我惯用的手段就是抓包了，抓包一看一切就很清晰了，不过后面还有其他方法，先看看抓包分析。先看看Linux环境：7.0.16-NTS，curl:7.29.0，如下图：
+
 ![image](https://raw.githubusercontent.com/iam2c/blog/master/assets/1/20170706151422.png)
+
 在Linux和Windows都抓包了，发现其响应都不相同，Windows的是200 OK，Linux的是400 Bad Request。如下图：
+
 ![image](https://raw.githubusercontent.com/iam2c/blog/master/assets/1/20170706152007.png)
+
 错误是服务器返回的，那问题来了？代码是一样的，为什么会有不同的结果？难道curl的问题，于是把POST请求报文拿出来，对比了一下：
+
 ![image](https://raw.githubusercontent.com/iam2c/blog/master/assets/1/20170706152510.png)
+
 结果真的跟我预想的一样，请求头信息果然不一样，Linux下多了一行：Content-Length: -1，所以服务器就报了400 Bad Request错误，可以参见[rfc2616的Content-Length](https://tools.ietf.org/html/rfc2616#page-119)和[4.4 Message Length](https://tools.ietf.org/html/rfc2616#section-4.4)。多加的一行头应该跟PHP的curl扩展有关系，这也可能是curl的一个bug，其原因不深究，感兴趣的可以去研究一下。
 
 #### 3.怎么修改呢？
