@@ -32,7 +32,9 @@ Windows环境：5.6.30-nts-Win32，curl:7.51.0。如下图：
 也没有出现像上面的400错误结果，说明Windows没有问题，也不是代码差异问题。
 
 #### 2.这段错误怎么来的？
-我惯用的手段就是抓包了，抓包一看一切就很清晰了，不过后面还有其他方法，先看看抓包分析。先看看Linux环境：7.0.16-NTS，curl:7.29.0，如下图：
+我惯用的手段就是抓包了，抓包一看一切就很清晰了，不过后面还有其他方法，先看看抓包分析。
+
+先看看Linux环境：7.0.16-NTS，curl:7.29.0，如下图：
 
 ![image](https://raw.githubusercontent.com/iam2c/blog/master/assets/1/20170706151422.png)
 
@@ -88,6 +90,29 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, array(
 $result = curl_exec($ch);
 print_r($result);
 ```
+
+#### 还有什么方法找出错误呢？
+
+上面已经说过了，不用抓包的形式，还有其他方法找出错误，这就是curl自带的verbose。例如上面的错误，其实可以这样子找差异：
+```php
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, 'http://api.xxx.com/all-tags');
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+curl_setopt($ch, CURLOPT_POST, 1);
+curl_setopt($ch, CURLOPT_VERBOSE, true); // 这里加了verbose
+curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    'Content-Type:application/json; charset=UTF-8', 
+    'Authorization:Bearer h-VEqtiblL693QZFQoTHT-SUooMF1OTLFtNbExGs'
+));
+$result = curl_exec($ch);
+print_r($result);
+```
+
+执行结果：
+
+![image](https://raw.githubusercontent.com/iam2c/blog/master/assets/1/20170707104458.png)
+
+由此看出，可以用设置curl选项CURLOPT_VERBOSE来看出请求的整个过程，可以不用抓包形式获取报文。
 
 # 0x03 结论
 
