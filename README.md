@@ -11,3 +11,4 @@
 4. Authentication头丢了！谈一次Apache+fcgid的排查过程
 5. phpredis扩展连接redis服务器最后发送RST包的排查过程
 6. CentOS中Web服务（Nginx+PHP-FPM）目录mount的Windows共享目录出现读不到错误（Input/Output Error）排查过程
+7. “RedisException: read error on connection”错误的排查过程
