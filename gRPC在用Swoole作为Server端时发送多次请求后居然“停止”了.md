@@ -197,6 +197,7 @@ int swoole_http2_do_response(http_context *ctx, swString *body)
 
 # 0x05 TODO
 还有一些未解决的问题的：
+
 1、Swoole对HTTP2的规范的更多实现。
 
 2、即使发了WINDOW_UPDATE帧，客户端也没有像规范所说的，使用SETTINGS_INITIAL_WINDOW_SIZE值，还是使用65535。
