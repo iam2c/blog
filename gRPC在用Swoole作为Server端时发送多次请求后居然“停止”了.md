@@ -41,9 +41,11 @@ while (++$i <= $max) {
 使用`strace -f -p`追踪进程情况，发现Server端和Client端都在等。
 
 下图是Server端的：
+
 ![image](https://raw.githubusercontent.com/iam2c/blog/master/assets/gRPC_SW/workder-20180415175505.png)
 
 下图是Client端的：
+
 ![image](https://raw.githubusercontent.com/iam2c/blog/master/assets/gRPC_SW/client-20180415175755.png)
 
 使用`ss -atn|grep 50052`查看连接，显示正常，连接没关闭
@@ -59,7 +61,9 @@ while (++$i <= $max) {
 说一下，我们那时候用的还是比较老的版本1.8.4的，于是后面升级成1.10.x，但是问题依旧，所以应该不是Swoole版本的问题。
 
 查看了抓的数据包，发现最后一个总是DATA帧，长度总是11个字节。
+
 ![image](https://raw.githubusercontent.com/iam2c/blog/master/assets/gRPC_SW/tcpdump-20180415181340.png)
+
 于是把之前发送过的数据的长度加起来，每次循环22+5+43+220(22\*10)+132=422字节，155次就是65410字节，加上后面那次不完整的22+5+43+22\*2+11，刚好65535字节。这个数字对于程序员来说肯定不少见，没有那么多每次必现的巧合，于是怀疑是HTTP2流量控制（flow control）的问题，查看了[HTTP2的文档规范](https://tools.ietf.org/html/rfc7540)，在[section-5.2](https://tools.ietf.org/html/rfc7540#section-5.2)和[section-6.9](https://tools.ietf.org/html/rfc7540#section-6.9)中有相关描述：
 ```
 6.9.2.  Initial Flow-Control Window Size
@@ -118,6 +122,7 @@ while (++$i <= $max) {
 例如，如果连接一建立客户端就立即发送60KB的数据，而服务端却将初始窗口大小设置为16KB，那么客户端一收到 SETTINGS 帧，就会将可用的流量控制窗口重新计算为-44KB。
 客户端保持负的流量控制窗口，直到WINDOW_UPDATE帧将窗口值恢复为正值，这之后，客户端才可以继续发送数据。
 ```
+
 看了这段文档，首先让我看到的是65535这个数字，上面的意思说得很明白，初始流量控制窗口大小为65535字节，可以通过SETTINGS_INITIAL_WINDOW_SIZE改变，而且只能通过WINDOW_UPDATE帧来改变。
 
 查看了Server和Client整个过程的数据包，发现Server虽然有发SETTINGS_INITIAL_WINDOW_SIZE，但是没有发过WINDOW_UPDATE帧（其实这个过程我通过调试很久才发现的，中间过程太长，我就不说了），所以Client没有接受Server的SETTINGS_INITIAL_WINDOW_SIZE值，也就是说还是65535个字节。
@@ -146,7 +151,9 @@ int swoole_http2_onFrame(swoole_http_client *client, swEventData *req)
     // ...
 }
 ```
+
 找到问题点，但是得验证啊，于是我就按照文档规范，发送WINDOW_UPDATE帧，但是不知道在哪里加好，后面就觉得在swoole_http2_do_response()加比较好，因为可以知道收到的数据长度。太多的规范都没有实现，只能先暂时解决当前的问题，只控制整个连接(connection)的窗口大小。下面的是我加的代码：
+
 ```c
 int swoole_http2_do_response(http_context *ctx, swString *body)
 {
@@ -176,7 +183,8 @@ int swoole_http2_do_response(http_context *ctx, swString *body)
 
 查找和解决这个问题中，让我学到很多知识，这可能就是兴趣吧。
 
-#0x05 TODO
+# 0x05 TODO
 还有一些未解决的问题的：
 1、Swoole对HTTP2的规范的更多实现。
+
 2、即使发了WINDOW_UPDATE帧，客户端也没有像规范所说的，使用SETTINGS_INITIAL_WINDOW_SIZE值，还是使用65535。
