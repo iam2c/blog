@@ -54,7 +54,7 @@ while (++$i <= $max) {
 再使用`tcpdump -ilo tcp port 50052`抓包分析，发现连接确实没有关闭，TCP发包也正常。
 
 # 0x03 分析
-解决问题常见手段：控制变量法，使用官方提供的demo中其他语言的Server，于是用了[Python](https://grpc.io/docs/tutorials/basic/python.html)和[Node](https://grpc.io/docs/tutorials/basic/node.html)的Server来提供服务都没有问题，不会再155次后“停止”了。
+解决问题常见手段：控制变量法，使用官方提供的demo中其他语言的Server，于是用了[Python](https://grpc.io/docs/tutorials/basic/python.html)和[Node](https://grpc.io/docs/tutorials/basic/node.html)的Server来提供服务都没有问题，不会在155次后“停止”了。
 
 于是就怀疑是我们用Swoole实现的Server出问题了，问题是哪里出问题了？Swoole底层还是我们基于Swoole写的Server出问题了呢？如果是我们Server代码的问题，那按理说前面155次应该都不能正常服务了，但是结果相反。Z提出会不会是Swoole底层出问题里，比如某个变量在跑了这么多次后越界了。
 
@@ -64,7 +64,7 @@ while (++$i <= $max) {
 
 ![image](https://raw.githubusercontent.com/iam2c/blog/master/assets/gRPC_SW/tcpdump-20180415181340.png)
 
-于是把之前发送过的数据的长度加起来，每次循环22+5+43+220(22\*10)+132=422字节，155次就是65410字节，加上后面那次不完整的22+5+43+22\*2+11，刚好65535字节。这个数字对于程序员来说肯定不少见，没有那么多每次必现的巧合，于是怀疑是HTTP2流量控制（flow control）的问题，查看了[HTTP2的文档规范](https://tools.ietf.org/html/rfc7540)，在[section-5.2](https://tools.ietf.org/html/rfc7540#section-5.2)和[section-6.9](https://tools.ietf.org/html/rfc7540#section-6.9)中有相关描述：
+于是把之前发送过的数据的长度加起来，每次循环22+5+43+220(22\*10)+132=422字节，155次就是65410字节，加上后面那次不完整的22+5+43+22\*2+11，刚好65535字节。这个数字对于程序员来说肯定不少见，没有每次都必现的巧合，于是怀疑是HTTP2流量控制（flow control）的问题，查看了[HTTP2的文档规范](https://tools.ietf.org/html/rfc7540)，在[section-5.2](https://tools.ietf.org/html/rfc7540#section-5.2)和[section-6.9](https://tools.ietf.org/html/rfc7540#section-6.9)中有相关描述：
 ```
 6.9.2.  Initial Flow-Control Window Size
 
@@ -98,7 +98,8 @@ while (++$i <= $max) {
     
    For example, if the client sends 60 KB immediately on connection
    establishment and the server sets the initial window size to be 16
-   KB, the client will recalculate the available flow-control window to be -44 KB on receipt of the SETTINGS frame.  The client retains a
+   KB, the client will recalculate the available flow-control window to 
+   be -44 KB on receipt of the SETTINGS frame.  The client retains a
    negative flow-control window until WINDOW_UPDATE frames restore the
    window to being positive, after which the client can resume sending.
    
@@ -125,7 +126,17 @@ while (++$i <= $max) {
 
 看了这段文档，首先让我看到的是65535这个数字，上面的意思说得很明白，初始流量控制窗口大小为65535字节，可以通过SETTINGS_INITIAL_WINDOW_SIZE改变，而且只能通过WINDOW_UPDATE帧来改变。
 
-查看了Server和Client整个过程的数据包，发现Server虽然有发SETTINGS_INITIAL_WINDOW_SIZE，但是没有发过WINDOW_UPDATE帧（其实这个过程我通过调试很久才发现的，中间过程太长，我就不说了），所以Client没有接受Server的SETTINGS_INITIAL_WINDOW_SIZE值，也就是说还是65535个字节。
+查看了Server和Client整个过程的数据包，发现Server虽然有发SETTINGS_INITIAL_WINDOW_SIZE，但是没有发过WINDOW_UPDATE帧（其实这个过程我通过调试很久才发现的，中间过程太长，我就不说了），所以Client没有接受Server的SETTINGS_INITIAL_WINDOW_SIZE值，也就是说还是65535个字节，这就符合上面为啥是65535个字节。
+
+那到底为啥导致两边都在等呢？
+
+Server端：
+
+因为Swoole底层在收到一个完整的HTTP2消息的时候才会交给上层，也就是我们的Server，在这之前都在阻塞，直到收到一个完整的HTTP2消息，所以上面的epoll_wait返回为0，也就是超时。
+
+Client端：
+
+这个好理解，因为Client端维护的还是默认的65535个窗口大小，当发送到最后一个包的时候，发现窗口大小不够，只有11个字节，所以只发送了11个字节，不是一个完整的HTTP2消息，也在Server的WINDOW_UPDATE帧来更新窗口大小。
 
 于是在某个PHP群里面问了一下各位老大Swoole对HTTP2的支持如何，但是没有人回应。好吧，只能自己去看源码了。看了一下源码，发现Swoole对HTTP2的规范实现很少，比如上面的收到数据要发送WINDOW_UPDATE帧告知对方已收到让其更新窗口大小，又如没有维护对方的窗口大小的值，不说是针对具体的流(stream)，连接(connection)的都没有完全实现（只有实现了收到WINDOW_UPDATE帧增加相应大小，但没有发送后减少相应的值）。
 
