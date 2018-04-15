@@ -129,14 +129,15 @@ while (++$i <= $max) {
 查看了Server和Client整个过程的数据包，发现Server虽然有发SETTINGS_INITIAL_WINDOW_SIZE，但是没有发过WINDOW_UPDATE帧（其实这个过程我通过调试很久才发现的，中间过程太长，我就不说了），所以Client没有接受Server的SETTINGS_INITIAL_WINDOW_SIZE值，也就是说还是65535个字节，这就符合上面为啥是65535个字节。
 
 那到底为啥导致两边都在等呢？
-
+```
 Server端：
-
-因为Swoole底层在收到一个完整的HTTP2消息的时候才会交给上层，也就是我们的Server，在这之前都在阻塞，直到收到一个完整的HTTP2消息，所以上面的epoll_wait返回为0，也就是超时。
-
+    
+因为Swoole底层在收到一个完整的HTTP2消息的时候才会交给上层（也就是我们的Server），在这之前都在阻塞，直到收到一个完整的HTTP2消息，所以上面的epoll_wait返回为0，也就是超时。
+    
 Client端：
-
-这个好理解，因为Client端维护的还是默认的65535个窗口大小，当发送到最后一个包的时候，发现窗口大小不够，只有11个字节，所以只发送了11个字节，不是一个完整的HTTP2消息，也在Server的WINDOW_UPDATE帧来更新窗口大小。
+    
+这个好理解，因为Client端维护的还是默认的65535个窗口大小，当发送到最后一个包的时候，发现窗口大小不够，只有11个字节，所以只发送了11个字节，不是一个完整的HTTP2消息，在等Server发送的WINDOW_UPDATE帧来更新窗口大小。
+```
 
 于是在某个PHP群里面问了一下各位老大Swoole对HTTP2的支持如何，但是没有人回应。好吧，只能自己去看源码了。看了一下源码，发现Swoole对HTTP2的规范实现很少，比如上面的收到数据要发送WINDOW_UPDATE帧告知对方已收到让其更新窗口大小，又如没有维护对方的窗口大小的值，不说是针对具体的流(stream)，连接(connection)的都没有完全实现（只有实现了收到WINDOW_UPDATE帧增加相应大小，但没有发送后减少相应的值）。
 
