@@ -200,4 +200,4 @@ int swoole_http2_do_response(http_context *ctx, swString *body)
 
 1、Swoole对HTTP/2的规范的更多实现。
 
-2、即使发了WINDOW_UPDATE帧，客户端也没有像规范所说的，使用SETTINGS_INITIAL_WINDOW_SIZE值，还是使用65535。
+~~2、即使发了WINDOW_UPDATE帧，客户端也没有像规范所说的，使用SETTINGS_INITIAL_WINDOW_SIZE值，还是使用65535。（这个细看了[section-6.5.1](https://tools.ietf.org/html/rfc7540#section-6.5.1)后发现SETTINGS_INITIAL_WINDOW_SIZE只是流级(stream-level)的流量控制）~~
