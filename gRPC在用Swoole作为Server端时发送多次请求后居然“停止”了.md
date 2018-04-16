@@ -4,7 +4,7 @@
 这里先说说gRPC，gRPC是由Google主导开发的RPC框架，使用HTTP/2协议并用ProtoBuf作为序列化工具。其客户端提供Objective-C、Java接口，服务器侧则有Java、Golang、C++等接口，从而为移动端（iOS/Androi）到服务器端通讯提供了一种解决方案。（这段是抄来，[点击这里查看原文](https://blog.csdn.net/omnispace/article/details/79562630)）。也可以[点击这里查看官方文档](https://grpc.io/docs/)。
 
 # 0x02 表象及初诊
-说干就干，和同事Z一起研究。下载了gRPC的源码，参考了一些[官方的教程](https://grpc.io/docs/tutorials/basic/php.html)，参考了前人的一些经验，同事Z写了一个Swoole的Server，跑了一些route_guide的demo，发现没有问题（暂时没用HTTPS）。但是Z把demo的循环跑完155次后，第156次没跑完就没有反应了，经过反复试验，总是155次。
+说干就干，和同事Z一起研究。下载了gRPC的源码，参考了一些[官方的教程](https://grpc.io/docs/tutorials/basic/php.html)，参考了前人的一些经验，同事Z写了一个Swoole的Server，跑了一些route_guide的demo，发现没有问题（暂时没用TLS）。但是Z把demo的循环跑完155次后，第156次没跑完就没有反应了，经过反复试验，总是155次。
 
 ![image](https://raw.githubusercontent.com/iam2c/blog/master/assets/gRPC_SW/20180415174712.png)
 
