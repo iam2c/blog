@@ -64,7 +64,7 @@ while (++$i <= $max) {
 
 ![image](https://raw.githubusercontent.com/iam2c/blog/master/assets/gRPC_SW/tcpdump-20180415181340.png)
 
-于是把之前发送过的数据的长度加起来，每次循环22+5+43+220(22\*10)+132=422字节，155次就是65410字节，加上后面那次不完整的22+5+43+22\*2+11，刚好65535字节。这个数字对于程序员来说肯定不少见，没有每次都必现的巧合，于是怀疑是HTTP2流量控制（flow control）的问题，查看了[HTTP2的文档规范](https://tools.ietf.org/html/rfc7540)，在[section-5.2](https://tools.ietf.org/html/rfc7540#section-5.2)和[section-6.9](https://tools.ietf.org/html/rfc7540#section-6.9)中有相关描述：
+于是把之前发送过的数据的长度加起来，每次循环22+5+43+220(22\*10)+132=422字节，155次就是65410字节，加上后面那次不完整的22+5+43+22\*2+11，刚好65535字节。这个数字对于程序员来说肯定不少见，没有每次都必现的巧合，于是怀疑是HTTP/2流量控制（flow control）的问题，查看了[HTTP/2的文档规范](https://tools.ietf.org/html/rfc7540)，在[section-5.2](https://tools.ietf.org/html/rfc7540#section-5.2)和[section-6.9](https://tools.ietf.org/html/rfc7540#section-6.9)中有相关描述：
 ```
 6.9.2.  Initial Flow-Control Window Size
 
@@ -132,14 +132,14 @@ while (++$i <= $max) {
 ```
 Server端：
     
-因为Swoole底层在收到一个完整的HTTP2消息的时候才会交给上层（也就是我们的Server），在这之前都在阻塞，直到收到一个完整的HTTP2消息，所以上面的epoll_wait返回为0，也就是超时。
+因为Swoole底层在收到一个完整的HTTP/2消息的时候才会交给上层（也就是我们的Server），在这之前都在阻塞，直到收到一个完整的HTTP/2消息，所以上面的epoll_wait返回为0，也就是超时。
     
 Client端：
     
-这个好理解，因为Client端维护的还是默认的65535个窗口大小，当发送到最后一个包的时候，发现窗口大小不够，只有11个字节，所以只发送了11个字节，不是一个完整的HTTP2消息，在等Server发送的WINDOW_UPDATE帧来更新窗口大小。
+这个好理解，因为Client端维护的还是默认的65535个窗口大小，当发送到最后一个包的时候，发现窗口大小不够，只有11个字节，所以只发送了11个字节，不是一个完整的HTTP/2消息，在等Server发送的WINDOW_UPDATE帧来更新窗口大小。
 ```
 
-于是在某个PHP群里面问了一下各位老大Swoole对HTTP2的支持如何，但是没有人回应。好吧，只能自己去看源码了。看了一下源码，发现Swoole对HTTP2的规范实现很少，比如上面的收到数据要发送WINDOW_UPDATE帧告知对方已收到让其更新窗口大小，又如没有维护对方的窗口大小的值，不说是针对具体的流(stream)，连接(connection)的都没有完全实现（只有实现了收到WINDOW_UPDATE帧增加相应大小，但没有发送后减少相应的值）。
+于是在某个PHP群里面问了一下各位老大Swoole对HTTP/2的支持如何，但是没有人回应。好吧，只能自己去看源码了。看了一下源码，发现Swoole对HTTP/2的规范实现很少，比如上面的收到数据要发送WINDOW_UPDATE帧告知对方已收到让其更新窗口大小，又如没有维护对方的窗口大小的值，不说是针对具体的流(stream)，连接(connection)的都没有完全实现（只有实现了收到WINDOW_UPDATE帧增加相应大小，但没有发送后减少相应的值）。
 
 ```c
 /**
@@ -198,6 +198,6 @@ int swoole_http2_do_response(http_context *ctx, swString *body)
 # 0x05 TODO
 还有一些未解决的问题的：
 
-1、Swoole对HTTP2的规范的更多实现。
+1、Swoole对HTTP/2的规范的更多实现。
 
 2、即使发了WINDOW_UPDATE帧，客户端也没有像规范所说的，使用SETTINGS_INITIAL_WINDOW_SIZE值，还是使用65535。
