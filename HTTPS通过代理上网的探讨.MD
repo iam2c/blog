@@ -33,7 +33,7 @@ HTTPS的请求在使用代理时，会被截获拿到明文（HTTP请求消息�
 
 # 0x03 HTTPS和TLS
 
-下面这两段来自[百度百科·HTTPS](https://baike.baidu.com/item/https/285356?fr=aladdin)：
+下面这两段来自[百度百科·HTTPS](https://baike.baidu.com/item/https/285356)：
 
 > HTTPS（全称：Hyper Text Transfer Protocol over Secure Socket Layer），是以安全为目标的HTTP通道，简单讲是HTTP的安全版。即HTTP下加入SSL层，HTTPS的安全基础是SSL，因此加密的详细内容就需要SSL。 
 
@@ -55,7 +55,7 @@ HTTPS的请求在使用代理时，会被截获拿到明文（HTTP请求消息�
 
 先来看看完整的TLS协议交互图（图0，来自[RFC 5246](https://tools.ietf.org/html/rfc5246)）：
 
-![图片](http://github.local/0.png?raw=true)
+![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/0.png?raw=true)
 
 <center>图0</center>
 
@@ -99,7 +99,7 @@ HTTPS的请求在使用代理时，会被截获拿到明文（HTTP请求消息�
 #### （二）客户端和服务器存在代理的通信分析
 其实有代理存在的时候，我们来看看抓到的报文，看图-1的wireshark抓包：
 
-![图片](http://github.local/-1.png?raw=true)
+![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/-1.png?raw=true)
 
 <center>图-1</center>
 
@@ -113,7 +113,7 @@ HTTPS的请求在使用代理时，会被截获拿到明文（HTTP请求消息�
 ```
 ##### ● wireshark抓包
 
-![图片](http://github.local/1.png?raw=true)
+![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/1.png?raw=true)
 
 <center>图1</center>
 
@@ -144,7 +144,7 @@ Extensions
         如果有，那在后面服务端发给客户端的证书（报文6中的Certificate）必须由该扩展中出现的散列/签名算法对进行签名。
 ```
 
-![图片](http://github.local/2.png?raw=true)
+![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/2.png?raw=true)
 
 <center>图2</center>
 
@@ -184,7 +184,7 @@ algorithmIdentifier
 encrypted
     用RSA的私钥K1给摘要加密后的密文，这里的私钥K1跟signedCertificate中的subjectPublicKeyInfo（公钥）成对的，不了解可以去了解RSA算法。
 ```
-![图片](http://github.local/4.png?raw=true)
+![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/4.png?raw=true)
 
 <center>图4</center>
 
@@ -207,13 +207,13 @@ Signature
     看Signature Algorithm解释。
 ```
 
-![图片](http://github.local/5.png?raw=true)
+![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/5.png?raw=true)
 
 <center>图5</center>
 
 （4）最后来看Server Hello Done，Server Hello Done表示服务器已完成密钥交换消息的发送，客户端可以继续其密钥交换阶段（后面的Client Key Exchange）。收到ServerHelloDone消息后，客户端应该检查服务器是否提供了有效的证书（如果发送了，本例是有的）。
 
-![图片](http://github.local/6.png?raw=true)
+![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/6.png?raw=true)
 
 <center>图6</center>
 
@@ -228,19 +228,19 @@ Pubkey
     客户端的Diffie-Hellman算法公开值，下称DH_PV2，跟服务端的公开值DH_PV1结合就能算出对称加密的密钥。
 ```
 
-![图片](http://github.local/7.png?raw=true)
+![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/7.png?raw=true)
 
 <center>图7</center>
 
 （2）接下来是Change Cipher Spec，Change Cipher Spec并不是TLS握手消息。客户端通知服务器在后续的通信中使用加密模式（对称加密），如图8。
 
-![图片](http://github.local/8.png?raw=true)
+![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/8.png?raw=true)
 
 <center>图8</center>
 
 （3）最后来看Encrypted Handshake Message，属于握手阶段（Handshake Protocol）。Encrypted Handshake Message也就是图0中的Finished。该消息在Change Cipher Spec后发送，用来验证密钥交换和身份验证过程是否成功。客户端和服务端都会发送，服务端会在报文8中Encrypted Handshake Message发送。接收方必须验证内容（本报文中内容长度40）是否正确，如果正确则进入图0或图1中Application Data阶段。因为在这之前已经知道对称加密的密钥，下称SCK1，内容是使用SCK1和之前握手阶段（不包括本消息）的消息通过一定的算法（具体没深究）生成的一个摘要消息。如果之前握手数据被篡改过或者不知道SCK1，那么这里的验证阶段是通不过的。
 
-![图片](http://github.local/9.png?raw=true)
+![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/9.png?raw=true)
 
 <center>图9</center>
 
