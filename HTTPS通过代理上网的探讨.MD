@@ -97,13 +97,13 @@ HTTPS的请求在使用代理时，会被截获拿到明文（HTTP请求消息�
 不明白的可以先跳过，你就认为www.grpc.local是存在的，是一个正常的域名，客户端访问https://www.grpc.local就像访问百度等其他网站的一样，没有什么问题。
 
 #### （二）客户端和服务器存在代理的通信分析
-其实有代理存在的时候，我们来看看抓到的报文，看图-1的wireshark抓包：
+其实有代理存在的时候，我们来看看抓到的报文，看图1的wireshark抓包：
 
 ![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/-1.png?raw=true)
 
-<center>图-1</center>
+<center>图1</center>
 
-由图-1可以看出，客户端连接的是代理，而客户端的请求通过代理转发和服务端通信。这类似于客户端->服务端（代理充当）和客户端（代理充当）->服务端的通信，相当于两步客户端->服务端的通信，那么下面我们先看看客户端和服务器的通信是怎么样的。
+由图1可以看出，客户端连接的是代理，而客户端的请求通过代理转发和服务端通信。这类似于客户端->服务端（代理充当）和客户端（代理充当）->服务端的通信，相当于两步客户端->服务端的通信，那么下面我们先看看客户端和服务器的通信是怎么样的。
 
 #### （三）客户端和服务器正常通信分析
 先上图，看看客户端和服务端通信是怎么样的：
@@ -115,7 +115,7 @@ HTTPS的请求在使用代理时，会被截获拿到明文（HTTP请求消息�
 
 ![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/1.png?raw=true)
 
-<center>图1</center>
+<center>图2</center>
 
 ##### ● 图解
 
@@ -133,7 +133,7 @@ Session ID
 Cipher Suites
     支持的加密组件，如：TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384，更多可以见附录。
     TLS：TLS协议
-    ECDHE_ECDSA：密钥交换算法（密钥交换过程在图1中的报文6-7中）
+    ECDHE_ECDSA：密钥交换算法（密钥交换过程在图2中的报文6-7中）
     AES_256_GCM_SHA384：对称加密算法，协商后密钥后，后面的数据都是通过对称加密算法加密，因为对称加密算法比非对称加密算法快很多。
 Compression Methods
     支持的压缩算法，如果Session ID不为空，应该包含之前连接的压缩算法，本例为空。
@@ -146,7 +146,7 @@ Extensions
 
 ![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/2.png?raw=true)
 
-<center>图2</center>
+<center>图3</center>
 
 5：TCP报文ACK，回应客户端已收到上面（报文4之前）的报文。
 
@@ -169,7 +169,7 @@ Compression Method
 
 ![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/3.png?raw=true)
 
-<center>图3</center>
+<center>图4</center>
 
 （2）接下来看Certificate，Certificate是为了证明服务器的身份，发证书过去给客户端，客户端验证证书的正确性，如果证书可信，那么继续后面的步骤。
 ```txt
@@ -186,12 +186,12 @@ encrypted
 ```
 ![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/4.png?raw=true)
 
-<center>图4</center>
+<center>图5</center>
 
 （3）再接下来看Server Key Exchange，Server Key Exchange是当Certificate提供的信息不足以生成对称加密的私钥时才发送的，一般当Server Hello中选择的加密套件密钥交换算法为DHE_DSS、DHE_RSA和DH_anon以及在[ECC加密套件文档](https://tools.ietf.org/html/rfc4492)有定义的加密套件时才发送，本例中ECDHE_RSA就是，所以要发送Server Key Exchange，如果是RSA就不需要发送。
 
-* 当密钥交换算法为RSA时，那么客户端可以直接用Certificates中C1的公钥加密需要发送的随机数R3（这是后面的步骤图1报文7中Client Key Exchange），然后服务端用对应私钥K1解密，便得到随机数R3，后面报文7我们再讨论。RSA最为密钥交换算法没有[前向安全性](https://baike.baidu.com/item/前向安全性/6357798)，当私钥K1泄漏是会导致过去的会话密钥泄漏，更换私钥K1和证书C1也不能阻止攻击者算出过去的会话密钥。在TLS 1.3中被废弃了。
-* 当密钥交换算法为ECDHE_RSA时（本例），服务端会发送如图5中的信息，每个会话生成一个随机的公钥（图5中的Pubkey）来完成一个秘钥协定，不使用一个确定性算法（本例中用的rsa_pkcs1_sha512），这意味着一条信息的泄露不会泄露其它消息。此算法具有前向安全性。
+* 当密钥交换算法为RSA时，那么客户端可以直接用Certificates中C1的公钥加密需要发送的随机数R3（这是后面的步骤图2报文7中Client Key Exchange），然后服务端用对应私钥K1解密，便得到随机数R3，后面报文7我们再讨论。RSA最为密钥交换算法没有[前向安全性](https://baike.baidu.com/item/前向安全性/6357798)，当私钥K1泄漏是会导致过去的会话密钥泄漏，更换私钥K1和证书C1也不能阻止攻击者算出过去的会话密钥。在TLS 1.3中被废弃了。
+* 当密钥交换算法为ECDHE_RSA时（本例），服务端会发送如图6中的信息，每个会话生成一个随机的公钥（图6中的Pubkey）来完成一个秘钥协定，不使用一个确定性算法（本例中用的rsa_pkcs1_sha512），这意味着一条信息的泄露不会泄露其它消息。此算法具有前向安全性。
 
 ```txt
 EC Diffie-Hellman（ECDH） Server Params
@@ -209,19 +209,19 @@ Signature
 
 ![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/5.png?raw=true)
 
-<center>图5</center>
+<center>图6</center>
 
 （4）最后来看Server Hello Done，Server Hello Done表示服务器已完成密钥交换消息的发送，客户端可以继续其密钥交换阶段（后面的Client Key Exchange）。收到ServerHelloDone消息后，客户端应该检查服务器是否提供了有效的证书（如果发送了，本例是有的）。
 
 ![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/6.png?raw=true)
 
-<center>图6</center>
+<center>图7</center>
 
 7：这一个报文跟报文6一样，把多个Record Layer消息合并发送了，包括握手阶段的Client Key Exchange和变更密码通知协议的（Change Cipher Spec Protocol）的Change Cipher Spec以及握手阶段的Encrypted Handshake Message。如果需要验证客户端身份（也就是服务端发送了Certificate Request），则在Client Key Exchange发送客户端证书，本例没有，就不展开讨论，有需要自行搜索。如果发送了Client Key Exchange，说明客户端信任了报文6中的证书，也是了验证了证书。
 
 （1）先看看Client Key Exchange，这在报文6的（3）也提到了。
 * 当密钥交换算法为RSA时，这一步就是用C1的公钥加密随机数R3，然后服务端用私钥K1解密出来，然后结合随机数R1和R2按照一定的算法得到对称加密算法的密钥。中间人没法拿到随机数R3（公钥加密，只能用私钥加密），就没法知道密钥。
-* 当密钥交换算法为ECDHE_RSA时（本例），那么如果Pubkey它尚未包含在客户端的证书中（本例没有验证客户端证书），则需要发送Pubkey，见图6。客户端和服务端的两个Pubkey结合能算出对称加密的密钥。
+* 当密钥交换算法为ECDHE_RSA时（本例），那么如果Pubkey它尚未包含在客户端的证书中（本例没有验证客户端证书），则需要发送Pubkey，见图7。客户端和服务端的两个Pubkey结合能算出对称加密的密钥。
 
 ```txt
 Pubkey
@@ -230,23 +230,23 @@ Pubkey
 
 ![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/7.png?raw=true)
 
-<center>图7</center>
+<center>图8</center>
 
-（2）接下来是Change Cipher Spec，Change Cipher Spec并不是TLS握手消息。客户端通知服务器在后续的通信中使用加密模式（对称加密），如图8。
+（2）接下来是Change Cipher Spec，Change Cipher Spec并不是TLS握手消息。客户端通知服务器在后续的通信中使用加密模式（对称加密），如图9。
 
 ![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/8.png?raw=true)
 
-<center>图8</center>
+<center>图9</center>
 
-（3）最后来看Encrypted Handshake Message，属于握手阶段（Handshake Protocol）。Encrypted Handshake Message也就是图0中的Finished。该消息在Change Cipher Spec后发送，用来验证密钥交换和身份验证过程是否成功。客户端和服务端都会发送，服务端会在报文8中Encrypted Handshake Message发送。接收方必须验证内容（本报文中内容长度40）是否正确，如果正确则进入图0或图1中Application Data阶段。因为在这之前已经知道对称加密的密钥，下称SCK1，内容是使用SCK1和之前握手阶段（不包括本消息）的消息通过一定的算法（具体没深究）生成的一个摘要消息。如果之前握手数据被篡改过或者不知道SCK1，那么这里的验证阶段是通不过的。
+（3）最后来看Encrypted Handshake Message，属于握手阶段（Handshake Protocol）。Encrypted Handshake Message也就是图0中的Finished。该消息在Change Cipher Spec后发送，用来验证密钥交换和身份验证过程是否成功。客户端和服务端都会发送，服务端会在报文8中Encrypted Handshake Message发送。接收方必须验证内容（本报文中内容长度40）是否正确，如果正确则进入图0或图2中Application Data阶段。因为在这之前已经知道对称加密的密钥，下称SCK1，内容是使用SCK1和之前握手阶段（不包括本消息）的消息通过一定的算法（具体没深究）生成的一个摘要消息。如果之前握手数据被篡改过或者不知道SCK1，那么这里的验证阶段是通不过的。
 
 ![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/9.png?raw=true)
 
-<center>图9</center>
+<center>图10</center>
 
 8：该报文包括Change Cipher Spec和Encrypted Handshake Message（Finished）两个Record Layer消息。
 
-（1）先看看Change Cipher Spec，Change Cipher Spec跟报文7中的Change Cipher Spec类似，是服务端通知客户端在后续的通信中使用加密模式（对称加密），图跟图8一样的，就不重复贴了。
+（1）先看看Change Cipher Spec，Change Cipher Spec跟报文7中的Change Cipher Spec类似，是服务端通知客户端在后续的通信中使用加密模式（对称加密），图跟图9一样的，就不重复贴了。
 
 （2）再看Encrypted Handshake Message，跟报文7的Encrypted Handshake Message差不多，详见报文7的Encrypted Handshake Message。图也是一样的，就不贴了。
 
