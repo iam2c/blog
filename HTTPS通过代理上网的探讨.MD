@@ -167,7 +167,7 @@ Compression Method
     压缩算法。
 ```
 
-![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/?raw=true)
+![图片](https://raw.githubusercontent.com/iam2c/blog/master/assets/https_proxy/3.png?raw=true)
 
 <center>图3</center>
 
