@@ -6,10 +6,7 @@
 5. [gRPC在用Swoole作为Server端时发送多次请求后居然“停止”了](https://github.com/iam2c/blog/blob/master/gRPC%E5%9C%A8%E7%94%A8Swoole%E4%BD%9C%E4%B8%BAServer%E7%AB%AF%E6%97%B6%E5%8F%91%E9%80%81%E5%A4%9A%E6%AC%A1%E8%AF%B7%E6%B1%82%E5%90%8E%E5%B1%85%E7%84%B6%E2%80%9C%E5%81%9C%E6%AD%A2%E2%80%9D%E4%BA%86.md)
 
 # TODO
-1. HTTPS及非对称加密的巧妙设计
-2. 分层思想及其应用
-3. “分而治之”的思想
-4. Authentication头丢了！谈一次Apache+fcgid的排查过程
-5. phpredis扩展连接redis服务器最后发送RST包的排查过程
-6. CentOS中Web服务（Nginx+PHP-FPM）目录mount的Windows共享目录出现读不到错误（Input/Output Error）排查过程
-7. “RedisException: read error on connection”错误的排查过程
+1. Authentication头丢了！谈一次Apache+fcgid的排查过程
+2. phpredis扩展连接redis服务器最后发送RST包的排查过程
+3. “RedisException: read error on connection”错误的排查过程
+4. MQ消息慢的排查和解决过程
