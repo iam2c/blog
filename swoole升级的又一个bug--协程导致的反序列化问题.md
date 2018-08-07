@@ -1,5 +1,5 @@
 # 0x01 背景
-swoole发布了不少版本了，但是我司的代码还是比较旧的版本。之前升级也遇到了一下，比如swoole_server不能序列化和反序列化，不过调试并解决了，于是一些服务升级到了2.1.3。但是最近一个服务在swoole升级中出现了一个问题，问题点在onTask回调中发生错误：`Fatal error: Class declarations may not be nested in ...`。也就是说在worker发给task worker的内容反序列化时出现问题，导致task worker异常退出。
+swoole发布了不少版本了，但是我司用的版本还是比较旧的版本，遇到过不少坑。之前升级也遇到了一些BUG，比如swoole_server不能序列化和反序列化，不过调试并解决了，于是一些服务升级到了2.1.3。但是最近一个服务在swoole升级中出现了一个问题，问题点在onTask回调中发生错误：`Fatal error: Class declarations may not be nested in ...`。也就是说在worker发给task worker的内容反序列化时出现问题，导致task worker异常退出。
 
 这个错误，按照我的理解只会在类嵌套定义时才会出现，类似如下：
 
@@ -88,21 +88,21 @@ License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 ```c
 void zend_compile_class_decl(zend_ast *ast) /* {{{ */
 {
-	// ...
-	if (EXPECTED((decl->flags & ZEND_ACC_ANON_CLASS) == 0)) {
-		zend_string *unqualified_name = decl->name;
+    // ...
+    if (EXPECTED((decl->flags & ZEND_ACC_ANON_CLASS) == 0)) {
+        zend_string *unqualified_name = decl->name;
 
-		if (CG(active_class_entry)) {
-			zend_error_noreturn(E_COMPILE_ERROR, "Class declarations may not be nested");
-		}
-		// ...
-	}
+        if (CG(active_class_entry)) {
+            zend_error_noreturn(E_COMPILE_ERROR, "Class declarations may not be nested");
+        }
+        // ...
+    }
 }
 /* }}} */
 ```
 上面的代码省略了一些代码，但是不影响分析问题，后面也这样，我就不重复说明了。从代码可以看出`CG(active_class_entry)`为true，那么就会报错了。这个`CG(active_class_entry)`展开了就是compiler_globals.active_class_entry，compiler_globals.active_class_entry是编译阶段保存当前类的实体信息，对应zend_class_entry结构。也就是在准备编译某个类之前，先判断`CG(active_class_entry)`，不为空说明前面编译的类还没结束，如果再编译现在这个类，那就是类的嵌套定义（匿名类除外，PHP7支持匿名类），PHP语法是不允许这样的情况出现的，所以就报错了。
 
-找内核问题嘛，那就要用到GDB了，上面也说了GDB的版本，ps查看一下task worker进程ID：
+找内核问题嘛，那就要用到gdb了，上面也说了gdb的版本，ps查看一下task worker进程ID：
 
 ![img](https://raw.githubusercontent.com/iam2c/blog/master/assets/swoole_unserialize/4.png?raw=true)
 
@@ -124,14 +124,14 @@ Breakpoint 1 at 0x937b0c: file /home/www/php-7.0.29/Zend/zend_compile.c, line 52
 Continuing.
 ```
 
-发送请求触发问题点：
+发送请求触发问题点，gdb调到断点处：
 
 ```shell
 (gdb) c
 Continuing.
 
 Breakpoint 1, zend_compile_class_decl (ast=0x7fd9b4a4a3d0) at /home/www/php-7.0.29/Zend/zend_compile.c:5277
-5277				zend_error_noreturn(E_COMPILE_ERROR, "Class declarations may not be nested");
+5277                zend_error_noreturn(E_COMPILE_ERROR, "Class declarations may not be nested");
 (gdb) bt
 #0  zend_compile_class_decl (ast=0x7fd9b4a4a3d0) at /home/www/php-7.0.29/Zend/zend_compile.c:5277
 #1  0x000000000093d701 in zend_compile_stmt (ast=0x7fd9b4a4a3d0) at /home/www/php-7.0.29/Zend/zend_compile.c:7163
@@ -221,7 +221,7 @@ Breakpoint 1, zend_compile_class_decl (ast=0x7fd9b4a4a3d0) at /home/www/php-7.0.
 #43 0x0000000000a1e3dd in main (argc=2, argv=0x244aaf0) at /home/www/php-7.0.29/sapi/cli/php_cli.c:1347
 ```
 
-挑一些重点的来说（前面的序号代表上面GDB的bt过程的序号，从后面往前分析）：
+挑一些重点的来说（前面的序号代表上面gdb的bt过程的序号，从后面往前分析）：
 
 ```txt
 #29,#28：执行onTask回调，这还没到自定义的onTask回调（PHP回调），swoole会执行一些其他的代码，比如反序列化，然后才执行PHP回调。
@@ -239,7 +239,7 @@ Breakpoint 1, zend_compile_class_decl (ast=0x7fd9b4a4a3d0) at /home/www/php-7.0.
 ```
 class MyRequest
 {
-	const PB = Protocol::PB;
+    const PB = Protocol::PB;
     const JSON = Protocol::JSON;
 }
 ```
@@ -250,31 +250,31 @@ class MyRequest
 ```c
 void zend_compile_class_decl(zend_ast *ast) /* {{{ */
 {
-	// ...
-	
-	zend_class_entry *original_ce = CG(active_class_entry);
-	znode original_implementing_class = FC(implementing_class);
+    // ...
+    
+    zend_class_entry *original_ce = CG(active_class_entry);
+    znode original_implementing_class = FC(implementing_class);
 
-	if (EXPECTED((decl->flags & ZEND_ACC_ANON_CLASS) == 0)) {
-		zend_string *unqualified_name = decl->name;
+    if (EXPECTED((decl->flags & ZEND_ACC_ANON_CLASS) == 0)) {
+        zend_string *unqualified_name = decl->name;
 
-		if (CG(active_class_entry)) {
-			zend_error_noreturn(E_COMPILE_ERROR, "Class declarations may not be nested");   // 报错点
-		}
+        if (CG(active_class_entry)) {
+            zend_error_noreturn(E_COMPILE_ERROR, "Class declarations may not be nested");   // 报错点
+        }
     } else {
-	    // ...
-	}
-	
-	// ...
-	
-	CG(active_class_entry) = ce;
+        // ...
+    }
+    
+    // ...
+    
+    CG(active_class_entry) = ce;
 
-	zend_compile_stmt(stmt_ast);    // 编译类语句
+    zend_compile_stmt(stmt_ast);    // 编译类语句
 
     // ...
 
-	FC(implementing_class) = original_implementing_class;
-	CG(active_class_entry) = original_ce;   // 恢复为原来的
+    FC(implementing_class) = original_implementing_class;
+    CG(active_class_entry) = original_ce;   // 恢复为原来的
 }
 /* }}} */
 ```
@@ -285,20 +285,20 @@ void zend_compile_class_decl(zend_ast *ast) /* {{{ */
 ```C
 ZEND_API int zend_update_class_constants(zend_class_entry *class_type) /* {{{ */
 {
-	if (!(class_type->ce_flags & ZEND_ACC_CONSTANTS_UPDATED)) {
-		// ...
-		if (!CE_STATIC_MEMBERS(class_type) && class_type->default_static_members_count) {
-			// ...
-		} else {
-			zend_class_entry **scope = EG(current_execute_data) ? &EG(scope) : &CG(active_class_entry);
-			zend_class_entry *old_scope = *scope;
+    if (!(class_type->ce_flags & ZEND_ACC_CONSTANTS_UPDATED)) {
+        // ...
+        if (!CE_STATIC_MEMBERS(class_type) && class_type->default_static_members_count) {
             // ...
-			*scope = class_type;
+        } else {
+            zend_class_entry **scope = EG(current_execute_data) ? &EG(scope) : &CG(active_class_entry);
+            zend_class_entry *old_scope = *scope;
             // ...
-		}
-		class_type->ce_flags |= ZEND_ACC_CONSTANTS_UPDATED;
-	}
-	return SUCCESS;
+            *scope = class_type;
+            // ...
+        }
+        class_type->ce_flags |= ZEND_ACC_CONSTANTS_UPDATED;
+    }
+    return SUCCESS;
 }
 /* }}} */
 ```
@@ -316,31 +316,31 @@ Continuing.
 
 Breakpoint 1, php_swoole_onTask (serv=0x24fb130, req=0x7fffe3235f08)
     at /home/www/swoole-2.1.3/swoole_server.c:1008
-1008	    zval *zserv = (zval *) serv->ptr2;
+1008        zval *zserv = (zval *) serv->ptr2;
 (gdb) b zend_update_class_constants
 Breakpoint 2 at 0x961d4d: file /home/www/php-7.0.29/Zend/zend_API.c, line 1089.
 (gdb) c
 Continuing.
 
 Breakpoint 2, zend_update_class_constants (class_type=0x7fd9b4aaa2d0) at /home/www/php-7.0.29/Zend/zend_API.c:1089
-1089		if (!(class_type->ce_flags & ZEND_ACC_CONSTANTS_UPDATED)) {
+1089        if (!(class_type->ce_flags & ZEND_ACC_CONSTANTS_UPDATED)) {
 (gdb) until 1124
 
 Breakpoint 2, zend_update_class_constants (class_type=0x7fd9b4aaa4c8) at /home/www/php-7.0.29/Zend/zend_API.c:1089
-1089		if (!(class_type->ce_flags & ZEND_ACC_CONSTANTS_UPDATED)) {
+1089        if (!(class_type->ce_flags & ZEND_ACC_CONSTANTS_UPDATED)) {
 (gdb) until 1124
 zend_update_class_constants (class_type=0x7fd9b4aaa4c8) at /home/www/php-7.0.29/Zend/zend_API.c:1124
-1124				zend_class_entry **scope = EG(current_execute_data) ? &EG(scope) : &CG(active_class_entry);
+1124                zend_class_entry **scope = EG(current_execute_data) ? &EG(scope) : &CG(active_class_entry);
 (gdb) display compiler_globals.active_class_entry 
 1: compiler_globals.active_class_entry = (zend_class_entry *) 0x0
 (gdb) n
-1125				zend_class_entry *old_scope = *scope;
+1125                zend_class_entry *old_scope = *scope;
 1: compiler_globals.active_class_entry = (zend_class_entry *) 0x0
 (gdb) n
-1130				*scope = class_type;
+1130                *scope = class_type;
 1: compiler_globals.active_class_entry = (zend_class_entry *) 0x0
 (gdb) n
-1131				ZEND_HASH_FOREACH_VAL(&class_type->constants_table, val) {
+1131                ZEND_HASH_FOREACH_VAL(&class_type->constants_table, val) {
 1: compiler_globals.active_class_entry = (zend_class_entry *) 0x7fd9b4aaa4c8
 (gdb) p ((zend_class_entry *) 0x7fd9b4aaa4c8).name.val@30
 $1 = // 业务代码，不方便显示
@@ -351,11 +351,11 @@ warning: Temporarily disabling breakpoints for unloaded shared library "/home/ww
 ```
 可以看出确实是1130行的`*scope = class_type`修改了`CG(active_class_entry)`的值。那么再来看看`zend_class_entry **scope = EG(current_execute_data) ? &EG(scope) : &CG(active_class_entry)`这句，为啥`EG(current_execute_data)`为NULL了呢？
 
-先来看看这个`EG(current_execute_data)`，`EG(current_execute_data)`展开来就是executor_globals.current_execute_data，这是执行时的上下文信息，表示当前执行的是哪个execute_data。execute_data是zend_execute_data结构，是执行过程中最核心的一个结构，每次函数的调用、include/require、eval等都会生成一个新的结构，它表示当前的作用域、代码的执行位置以及局部变量的分配等等，等同于机器码执行过程中stack的角色（摘自[PHP7内核剖析](https://github.com/pangudashu/php7-internal/blob/master/3/zend_executor.md)）。`EG(current_execute_data)`为NULL，这是不可能，至少swoole启动时调用的`swoole_server::start()`方法。
+先来看看这个`EG(current_execute_data)`，`EG(current_execute_data)`展开来就是executor_globals.current_execute_data，这是执行时的上下文信息，表示当前执行的是哪个execute_data。execute_data是zend_execute_data结构，是执行过程中最核心的一个结构，每次函数的调用、include/require、eval等都会生成一个新的结构，它表示当前的作用域、代码的执行位置以及局部变量的分配等等，等同于机器码执行过程中stack的角色（摘自[PHP7内核剖析](https://github.com/pangudashu/php7-internal/blob/master/3/zend_executor.md)）。`EG(current_execute_data)`为NULL，这是不可能，至少swoole启动时就调用了`swoole_server::start()`方法。
 
-那到底是哪一步导致了`EG(current_execute_data)`为NULL？会不会是task worker启动时`EG(current_execute_data)`就为NULL了？是不是，实践一下就知道呢，继续调试。
+那到底是哪一步导致了`EG(current_execute_data)`为NULL？会不会是task worker启动时`EG(current_execute_data)`就为NULL了？
 
-关闭服务，用gdb重新启动，开启多进程调试模式（因为用的是SWOOLE_PROCESS）：
+关闭服务，用gdb重新启动，开启多进程调试模式（因为用的是SWOOLE_PROCESS，test.php为入口文件）：
 
 ```shell
 (gdb) set args test.php 
@@ -371,7 +371,7 @@ Starting program: /usr/bin/php7.0.29-debug test.php
 [Switching to Thread 0x7ffff7fe1840 (LWP 4000)]
 
 Breakpoint 1, swProcessPool_spawn (worker=0x7fffecc5ad88) at /home/www/swoole-2.1.3/src/network/ProcessPool.c:348
-348	    pid_t pid = fork();
+348        pid_t pid = fork();
 (gdb) p executor_globals.current_execute_data 
 $1 = (struct _zend_execute_data *) 0x7ffff3e14470
 (gdb) b /home/www/swoole-2.1.3/src/network/ProcessPool.c:359
@@ -383,14 +383,14 @@ Continuing.
 [Switching to Thread 0x7ffff7fe1840 (LWP 4001)]
 
 Breakpoint 2, swProcessPool_spawn (worker=0x7fffecc5ad88) at /home/www/swoole-2.1.3/src/network/ProcessPool.c:359
-359	        if (pool->onWorkerStart != NULL)
+359            if (pool->onWorkerStart != NULL)
 (gdb) display executor_globals.current_execute_data 
 1: executor_globals.current_execute_data = (struct _zend_execute_data *) 0x7ffff3e14470
 (gdb) n
-361	            pool->onWorkerStart(pool, worker->id);
+361                pool->onWorkerStart(pool, worker->id);
 1: executor_globals.current_execute_data = (struct _zend_execute_data *) 0x7ffff3e14470
 (gdb) n
-366	        if (pool->main_loop)
+366            if (pool->main_loop)
 1: executor_globals.current_execute_data = (struct _zend_execute_data *) 0x0
 (gdb) c
 Continuing.
@@ -401,24 +401,24 @@ Continuing.
 再继续调试`pool->onWorkerStart(pool, worker->id)`里面的语句：
 ```
 Breakpoint 2, swProcessPool_spawn (worker=0x7fffecc5ad88) at /home/www/swoole-2.1.3/src/network/ProcessPool.c:359
-359	        if (pool->onWorkerStart != NULL)
+359            if (pool->onWorkerStart != NULL)
 (gdb) s
-361	            pool->onWorkerStart(pool, worker->id);
+361                pool->onWorkerStart(pool, worker->id);
 (gdb) display executor_globals.current_execute_data
 1: executor_globals.current_execute_data = (struct _zend_execute_data *) 0x7ffff3e14470
 (gdb) s
 swTaskWorker_onStart (pool=0x7fffecc5a230, worker_id=3) at /home/www/swoole-2.1.3/src/network/TaskWorker.c:121
-121	    swServer *serv = pool->ptr;
+121        swServer *serv = pool->ptr;
 1: executor_globals.current_execute_data = (struct _zend_execute_data *) 0x7ffff3e14470
 // ...
 (gdb) n
-130	    swTaskWorker_signal_init();
+130        swTaskWorker_signal_init();
 1: executor_globals.current_execute_data = (struct _zend_execute_data *) 0x7ffff3e14470
 (gdb) n
-131	    swWorker_onStart(serv);
+131        swWorker_onStart(serv);
 1: executor_globals.current_execute_data = (struct _zend_execute_data *) 0x7ffff3e14470
 (gdb) n
-133	    SwooleG.main_reactor = NULL;
+133        SwooleG.main_reactor = NULL;
 1: executor_globals.current_execute_data = (struct _zend_execute_data *) 0x0
 ```
 可以发现，在`swWorker_onStart(serv)`后就变为NULL了，看看函数体，出现问题只能是下面的这两句：
