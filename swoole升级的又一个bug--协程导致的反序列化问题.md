@@ -503,6 +503,8 @@ int sw_coro_create(zend_fcall_info_cache *fci_cache, zval **argv, int argc, zval
 
 这个问题已向swoole官方反馈，[issue 1866](https://github.com/swoole/swoole-src/issues/1866)，官方回应已收到，问题还在解决中。
 
+从上面问题也可以看出，如果没有设置用户自定义的onworkerstart回调，也就不会执行`pool->onWorkerStart(pool, worker->id)`，所以也不会出现上面的错误。这就是为啥之前发现这个错误时没能整理出简单的复现代码，因为没有设置onworkerstart回调。
+
 # 0x04 附录一：复现步骤
 文件列表：
 ```shell
