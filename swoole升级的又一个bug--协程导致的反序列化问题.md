@@ -236,7 +236,7 @@ Breakpoint 1, zend_compile_class_decl (ast=0x7fd9b4a4a3d0) at /home/www/php-7.0.
 ```
 
 上面的代码执行类似于下面类的反序列化（这也是后面的复现代码）：
-```
+```php
 class MyRequest
 {
     const PB = Protocol::PB;
@@ -279,7 +279,7 @@ void zend_compile_class_decl(zend_ast *ast) /* {{{ */
 /* }}} */
 ```
 
-有人就会问了，为什么还要恢复原来的不是说不能嵌套定义吗？仔细看上面的代码，你会发现：出现那个错误走的if分支。也就是说PHP允许类里面定义匿名类的。
+有人就会问了，为什么还要恢复原来的不是说不能嵌套定义吗？仔细看上面的代码，你会发现：出现那个错误走的if分支，还有else分支，else分支就是匿名类，也就是说PHP允许类里面定义匿名类的。
 
 回到我们的问题，既然在编译类后恢复为原来的实体（我们的代码没有匿名类，所以original_ce为NULL），那么怎么会出现后面`CG(active_class_entry)`不为NULL呢？问题点出现在更新常量（上面的#17-#16）时，然后我们去看一下#17-#16的zend_update_class_constants函数（在php-7.0.29/Zend/zend_API.c）：
 ```C
@@ -302,7 +302,7 @@ ZEND_API int zend_update_class_constants(zend_class_entry *class_type) /* {{{ */
 }
 /* }}} */
 ```
-上面的代码重点这两句（根据bt堆栈看出应该在1134行之前）：
+根据bt调用栈可以看出应该在1134行之前，所以上面的代码重点看这两句：
 ```
 zend_class_entry **scope = EG(current_execute_data) ? &EG(scope) : &CG(active_class_entry);
 *scope = class_type;
@@ -433,7 +433,7 @@ void swWorker_onStart(swServer *serv)
 }
 ```
 再看`serv->onWorkerStart(serv, SwooleWG.id)`也就是`php_swoole_onWorkerStart(serv, SwooleWG.id)`：
-```
+```C
 static void php_swoole_onWorkerStart(swServer *serv, int worker_id)
 {
     // ...
