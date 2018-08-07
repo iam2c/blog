@@ -100,7 +100,7 @@ void zend_compile_class_decl(zend_ast *ast) /* {{{ */
 }
 /* }}} */
 ```
-上面的代码省略了一些代码，但是不影响分析问题，后面也这样，我就不重复说明了。从代码可以看出`CG(active_class_entry)`为true，那么就会报错了。这个`CG(active_class_entry)`展开了就是compiler_globals.active_class_entry，compiler_globals.active_class_entry是编译阶段保存当前类的实体信息，对应zend_class_entry结构。也就是在准备编译某个类之前，先判断`CG(active_class_entry)`，不为空说明前面编译的类还没结束，如果再编译现在这个类，那就是类的嵌套定义（匿名类除外，PHP7支持匿名类），PHP语法是不允许这样的情况出现的，所以就报错了。
+上面的代码省略了一些代码或者中间过程（使用`// ...`表示），但是不太影响问题分析，后面也这样，我就不重复说明了。从代码可以看出`CG(active_class_entry)`为true，那么就会报错了。这个`CG(active_class_entry)`展开了就是compiler_globals.active_class_entry，compiler_globals.active_class_entry是编译阶段保存当前类的实体信息，对应zend_class_entry结构。也就是在准备编译某个类之前，先判断`CG(active_class_entry)`，不为空说明前面编译的类还没结束，如果再编译现在这个类，那就是类的嵌套定义（匿名类除外，PHP7支持匿名类），PHP语法是不允许这样的情况出现的，所以就报错了。
 
 找内核问题嘛，那就要用到gdb了，上面也说了gdb的版本，ps查看一下task worker进程ID：
 
@@ -108,7 +108,7 @@ void zend_compile_class_decl(zend_ast *ast) /* {{{ */
 
 3659-3662都是task worker的进程ID。
 
-挑一个gdb attach：
+挑一个进程进行调试：
 ```shell
 $ gdb attach 3659
 GNU gdb (GDB) Red Hat Enterprise Linux 7.6.1-94.el7
@@ -243,7 +243,7 @@ class MyRequest
     const JSON = Protocol::JSON;
 }
 ```
-反序列MyRequest，初始化MyRequest的类属性（这里没有），然后初始化常量，发现常量依赖于别的类Protocol，所以又通过autoload加载类Protocol，然后编译Protocol类就报错了。
+反序列化MyRequest，初始化MyRequest的类属性（这里没有），然后初始化常量，发现常量依赖于别的类Protocol，所以又通过autoload加载类Protocol，然后编译Protocol类就报错了。
 
 查看类的编译过程zend_compile_class_decl，编译类语句时会把当前类实体赋给`CG(active_class_entry)`，然后编译语句结束后恢复为原来的：
 
@@ -499,6 +499,166 @@ int sw_coro_create(zend_fcall_info_cache *fci_cache, zval **argv, int argc, zval
 }
 ```
 
-`EG(current_execute_data) = NULL`罪魁祸首在这里，这里把值给修改了，应该保存上下文，在协程执行完`zend_execute_ex(call)`后恢复上下文。
+`EG(current_execute_data) = NULL`问题就出在这里，把值修改为NULL了。我觉得应该保存上下文，在协程执行完`zend_execute_ex(call)`后恢复上下文。本人对swoole的协程实现还不是很了解，不知道他们的实现方式，所以暂时没法修复这个bug，这个bug在4.0后是好的，据swoole组的说因为4.0重构了协程的实现，所以不会出现这个问题，建议升级到最新版4.0.3。
 
-（未完待续）
+# 0x03 小结
+从上面的分析过程可以看出：是协程实现在`onWorkerStart`时把上下文信息`EG(current_execute_data)`“弄丢”了，导致后面反序列化时判断错误使用了一个类的实体(zend_class_entry)作为`CG(active_class_entry)`，然后解析另一个类，导致了错误`Class declarations may not be nested`。
+
+
+这个问题已向swoole官方反馈，官方回应已收到，问题还在解决中。
+
+# 0x04 附录一：复现步骤
+文件列表：
+```shell
+$ ll
+总用量 16
+-rw-r--r-- 1 www www  122 8月   7 11:10 MyRequest.php
+-rw-r--r-- 1 www www  339 8月   7 11:11 Protocol.php
+-rw-r--r-- 1 www www  262 8月   7 11:19 swoole_client.php
+-rw-r--r-- 1 www www 1466 8月   7 11:23 swoole_server.php
+```
+文件说明：
+```
+swoole_server.php：提供服务。
+swoole_client.php：客户端。
+MyRequest.php：被序列化的类MyRequest所在文件。
+Protocol.php：类MyRequest依赖的类Protocol所在文件。
+```
+swoole_server.php：
+```php
+<?php
+class Autoloader
+{
+    public static function load($class)
+    {
+        $ext = '.php';
+        $class = str_replace('\\', '/', $class);
+        $path = __DIR__ . DIRECTORY_SEPARATOR . $class . $ext;
+        require $path;
+    }
+}
+
+spl_autoload_register(['Autoloader', 'load']);
+
+function my_log($content, $file = null)
+{
+    if ($file === null) {
+        $file = __DIR__ . DIRECTORY_SEPARATOR . 'log.log';
+    }
+    $content = '[' . \date('Y-m-d H:i:s') . ']' . print_r($content, 1) . "\r\n";
+    return @file_put_contents($file, $content, FILE_APPEND);
+}
+
+
+$server = new \swoole_server('127.0.0.1', 12222, \SWOOLE_PROCESS);
+$server->set([
+    'daemonize' => 1,
+    'worker_num' => 2,
+    'task_worker_num' => 4,
+    'log_file' => __DIR__ . DIRECTORY_SEPARATOR . 'swoole.log'
+]);
+$server->on('receive', function(\swoole_server $server, $fd, $from_id, $data) {
+    $request = new \MyRequest();
+    $server->task($request); // 这里会序列化MyRequest
+});
+
+$server->on('task', function(\swoole_server $server, $task_id, $from_id, $taskData) {
+    my_log("on task");
+});
+
+$server->on('finish', function(\swoole_server $server, $task_id, $from_id, $taskData) {
+    my_log("on finish");
+});
+
+$server->on('start', function(\swoole_server $server) {
+    my_log("on start");
+});
+
+$server->on('workerstart', function(\swoole_server $server, int $worker_id) {
+    my_log("on workerstart");
+});
+
+$server->start();
+```
+swoole_client.php：
+
+```PHP
+<?php
+$client = new \swoole_client(SWOOLE_SOCK_TCP, SWOOLE_SOCK_SYNC);
+$client->connect('127.0.0.1', 12222, 30);
+
+/* 随便发的，为的是触发服务的onTask回调 */
+$body = "test";
+$packed = pack('N', strlen($body)) . $body;
+$client->send($packed);
+```
+
+MyRequest.php：
+
+```php
+<?php
+/**
+ * Class MyRequest
+ */
+class MyRequest
+{
+    const PB = Protocol::PB;
+    const JSON = Protocol::JSON;
+}
+```
+
+Protocol.php：
+
+```php
+<?php
+/**
+ * Protocol enum
+ */
+final class Protocol
+{
+    const PB = 1;
+    const JSON = 2;
+
+    public function getEnumValues()
+    {
+        return array(
+            'PB' => self::PB,
+            'JSON' => self::JSON,
+        );
+    }
+}
+```
+
+复现步骤：
+
+```shell
+[www@host-XXX swoole_unserialize]$ pwd
+/home/www/swoole_unserialize
+[www@host-XXX swoole_unserialize]$ php7.0.29-debug swoole_server.php 
+[www@host-XXX swoole_unserialize]$ ps -ef|grep swoole_server.php
+www       4785     1  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4786  4785  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4788  4786  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4789  4786  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4790  4786  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4791  4786  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4792  4786  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4793  4786  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4795  9545  0 11:40 pts/3    00:00:00 grep --color=auto swoole_server.php
+[www@host-XXX swoole_unserialize]$ php7.0.29-debug swoole_client.php 
+[www@host-XXX swoole_unserialize]$ ps -ef|grep swoole
+www       4785     1  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4786  4785  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4789  4786  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4790  4786  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4791  4786  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4792  4786  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4793  4786  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4797  4786  0 11:40 ?        00:00:00 php7.0.29-debug swoole_server.php
+www       4799  9545  0 11:40 pts/3    00:00:00 grep --color=auto swoole
+[www@host-XXX swoole_unserialize]$ tail -2 swoole.log 
+[2018-08-07 11:40:40 ^4788.2]	ERROR	zm_deactivate_swoole (ERROR 503): Fatal error: Class declarations may not be nested in /home/www/swoole_unserialize/Protocol.php on line 5.
+[2018-08-07 11:40:40 $4786.0]	WARNING	swManager_check_exit_status: worker#2 abnormal exit, status=255, signal=0
+```
+
+两次`ps -ef|grep swoole`可以看出进程ID为4788的进程（task worker进程）在请求完就挂掉了，然后manager进程(进程ID：4786)会重新拉起一个task worker进程，ID为4797。因为设置了log_file，所以可以查看swoole.log。`tail -2 swoole.log`第一条的`^4788`表示进程ID为4788的task worker的日志，错误信息为`Fatal error: Class declarations may not be nested...`。`$4786`表示Manager进程的信息，Manager收到子进程4788退出的信号，于是打印信息，`abnormal exit, status=255`表示异常退出。
