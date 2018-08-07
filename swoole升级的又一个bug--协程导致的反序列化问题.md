@@ -501,7 +501,7 @@ int sw_coro_create(zend_fcall_info_cache *fci_cache, zval **argv, int argc, zval
 从上面的分析过程可以看出：是协程实现在`onWorkerStart`时把上下文信息`EG(current_execute_data)`“弄丢”了，导致后面反序列化时判断错误使用了一个类的实体(zend_class_entry)作为`CG(active_class_entry)`，然后解析另一个类，导致了错误`Class declarations may not be nested`。
 
 
-这个问题已向swoole官方反馈，官方回应已收到，问题还在解决中。
+这个问题已向swoole官方反馈，[issue 1866](https://github.com/swoole/swoole-src/issues/1866)，官方回应已收到，问题还在解决中。
 
 # 0x04 附录一：复现步骤
 文件列表：
