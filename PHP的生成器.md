@@ -323,7 +323,7 @@ struct _zend_generator {
 ```
 重点介绍几个重要的：
 *  execute_data：生成器函数的上下文execute_data，包括当前运行到的位置、变量等状态信息，底层EX宏就是访问这个结构的成员。如果这个为NULL，则表明该生成器已经结束，也就是没有更多的值生成了。当生成器函数return时（没有显式return底层默认return NULL），execute_data变为NULL，后面会介绍。
-*  vm_stack：VM栈，这个会在[Generator对象的创建](./#Generator对象的创建)中详细介绍。
+*  vm_stack：VM栈，这个会在[Generator对象的创建](#Generator对象的创建)中详细介绍。
 *  key：当前元素的key，每次yield都会更新此值，如果yield没有指定key（也就是yield $key => $value形式），则使用largest_used_integer_key值。
 *  value：当前元素的value，也就是生成的值，每次yield都会更新此值。
 *  retval：生成器的返回值，也就是return返回的值，可以通过Generator::getReturn()获取。
@@ -475,7 +475,7 @@ ZEND_API void zend_generator_create_zval(zend_execute_data *call, zend_op_array 
 
 
 ## 4.4 yield生成值
-[Generator对象的创建](./#Generator对象的创建)中提到yield是一个表达式，
+[Generator对象的创建](#Generator对象的创建)中提到yield是一个表达式，
 编译的时候最终会调用`zend_compile_yield()`函数，在Zend/compile.c:6337-6368：
 
 代码片段 4.4.1：
@@ -633,7 +633,7 @@ ZEND_API int _object_and_properties_init(zval *arg, zend_class_entry *class_type
 }
 /* }}} */
 ```
-从**代码片段4.4.2**可以看出，如果`zend_class_entry`定义有`create_object()`函数，那么会调用`create_object()`函数。而zend_ce_generator是有定义有`create_object()`函数，该函数为`zend_generator_create()`，参见[4.1 Generator类的注册及其存储结构](./#Generator类的注册及其存储结构)：
+从**代码片段4.4.2**可以看出，如果`zend_class_entry`定义有`create_object()`函数，那么会调用`create_object()`函数。而zend_ce_generator是有定义有`create_object()`函数，该函数为`zend_generator_create()`，参见[4.1 Generator类的注册及其存储结构](#Generator类的注册及其存储结构)：
 
 代码片段4.5.3：
 
@@ -685,7 +685,7 @@ ZEND_METHOD(Generator, valid)
 	RETURN_BOOL(EXPECTED(generator->execute_data != NULL));
 }
 ```
-valid也是获取到zend_generator后，调用`zend_generator_get_current()`函数，获取当前需要运行的`zend_generator`，然后判断为`NULL`，以此已经更多的值生成了，这在[zend_generator结构体](./#zend_generator结构体)中详细说明过。
+valid也是获取到zend_generator后，调用`zend_generator_get_current()`函数，获取当前需要运行的`zend_generator`，然后判断为`NULL`，以此已经更多的值生成了，这在[zend_generator结构体](#zend_generator结构体)中详细说明过。
 
 #### 4.5.1.3 ZEND_METHOD(Generator, current)
 `ZEND_METHOD(Generator, current)`获取当前元素的值。
@@ -733,7 +733,7 @@ ZEND_METHOD(Generator, key)
 	}
 }
 ```
-跟`ZEND_METHOD(Generator, value)`差不多，`zend_generator.key`存储的就是当前元素的键，这在[zend_generator结构体](./#zend_generator结构体)中详细说明过。
+跟`ZEND_METHOD(Generator, value)`差不多，`zend_generator.key`存储的就是当前元素的键，这在[zend_generator结构体](#zend_generator结构体)中详细说明过。
 
 #### 4.5.1.5 ZEND_METHOD(Generator, next)
 `ZEND_METHOD(Generator, next)`向前移动到下一个元素，也就是执行到下一个yield *。
@@ -844,7 +844,7 @@ try_again: // 这个标签是个yield from用的，解析完yield from表达式�
 `zend_generator_resume()`函数，表面意思就是继续运行生成器函数。前面是一些判断，然后保存当前上下文，执行生成器代码，遇到yield返回，然后恢复上下文。至于yield后生成值并保存状态，
 
 ### 4.5.2 使用foreach访问
-foreach访问生成器对象，其实就是调用`zend_ce_generator->get_iterator`，这在[Generator类的注册](./#Generator类的注册)中介绍过，这是一个钩子，生成器用的是`zend_generator_get_iterator`，在Zend/zend_generators.c:1069-1093：
+foreach访问生成器对象，其实就是调用`zend_ce_generator->get_iterator`，这在[Generator类的注册](#Generator类的注册)中介绍过，这是一个钩子，生成器用的是`zend_generator_get_iterator`，在Zend/zend_generators.c:1069-1093：
 
 代码片段4.5.10：
 
