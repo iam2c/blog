@@ -254,31 +254,31 @@ foreach ($generator as $value) {
 ```C
 void zend_register_generator_ce(void) /* {{{ */
 {
-	zend_class_entry ce;
+    zend_class_entry ce;
 
-	INIT_CLASS_ENTRY(ce, "Generator", generator_functions); // 初始化Generator类，主要其方法
-	zend_ce_generator = zend_register_internal_class(&ce);  // 注册为内部类
-	zend_ce_generator->ce_flags |= ZEND_ACC_FINAL; // 设置为final类，表示不能被继承。
-	/* 下面3个函数时钩子函数，内部类用到，用户自定义的会使用默认函数 */
-	zend_ce_generator->create_object = zend_generator_create; // 创建对象
-	zend_ce_generator->serialize = zend_class_serialize_deny; // 序列化，zend_class_serialize_deny表示不能序列化
-	zend_ce_generator->unserialize = zend_class_unserialize_deny; // 反序列化，zend_class_unserialize_deny表示不能反序列化
+    INIT_CLASS_ENTRY(ce, "Generator", generator_functions); // 初始化Generator类，主要其方法
+    zend_ce_generator = zend_register_internal_class(&ce);  // 注册为内部类
+    zend_ce_generator->ce_flags |= ZEND_ACC_FINAL; // 设置为final类，表示不能被继承。
+    /* 下面3个函数时钩子函数，内部类用到，用户自定义的会使用默认函数 */
+    zend_ce_generator->create_object = zend_generator_create; // 创建对象
+    zend_ce_generator->serialize = zend_class_serialize_deny; // 序列化，zend_class_serialize_deny表示不能序列化
+    zend_ce_generator->unserialize = zend_class_unserialize_deny; // 反序列化，zend_class_unserialize_deny表示不能反序列化
 
-	/* get_iterator has to be assigned *after* implementing the inferface */
-	zend_class_implements(zend_ce_generator, 1, zend_ce_iterator); // 实现zend_ce_iterator类，也就是Iterator
-	zend_ce_generator->get_iterator = zend_generator_get_iterator;  // 遍历方法，这也是个钩子方法，用户自定义的使用默认的
-	zend_ce_generator->iterator_funcs.funcs = &zend_generator_iterator_functions; // 遍历相关的方法（valid/next/current等）使用自己的
+    /* get_iterator has to be assigned *after* implementing the inferface */
+    zend_class_implements(zend_ce_generator, 1, zend_ce_iterator); // 实现zend_ce_iterator类，也就是Iterator
+    zend_ce_generator->get_iterator = zend_generator_get_iterator;  // 遍历方法，这也是个钩子方法，用户自定义的使用默认的
+    zend_ce_generator->iterator_funcs.funcs = &zend_generator_iterator_functions; // 遍历相关的方法（valid/next/current等）使用自己的
 
     /* 下面几个是对象（Generator类的实例）相关的 */
-	memcpy(&zend_generator_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers)); // 先使用默认的，后面的相应覆盖
-	zend_generator_handlers.free_obj = zend_generator_free_storage; // 释放
-	zend_generator_handlers.dtor_obj = zend_generator_dtor_storage; // 销毁
-	zend_generator_handlers.get_gc = zend_generator_get_gc; // 垃圾回收相关
-	zend_generator_handlers.clone_obj = NULL; // 克隆。禁止克隆
-	zend_generator_handlers.get_constructor = zend_generator_get_constructor; // 构造
+    memcpy(&zend_generator_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers)); // 先使用默认的，后面的相应覆盖
+    zend_generator_handlers.free_obj = zend_generator_free_storage; // 释放
+    zend_generator_handlers.dtor_obj = zend_generator_dtor_storage; // 销毁
+    zend_generator_handlers.get_gc = zend_generator_get_gc; // 垃圾回收相关
+    zend_generator_handlers.clone_obj = NULL; // 克隆。禁止克隆
+    zend_generator_handlers.get_constructor = zend_generator_get_constructor; // 构造
 
-	INIT_CLASS_ENTRY(ce, "ClosedGeneratorException", NULL);
-	zend_ce_ClosedGeneratorException = zend_register_internal_class_ex(&ce, zend_ce_exception);
+    INIT_CLASS_ENTRY(ce, "ClosedGeneratorException", NULL);
+    zend_ce_ClosedGeneratorException = zend_register_internal_class_ex(&ce, zend_ce_exception);
 }
 ```
 
@@ -295,30 +295,30 @@ void zend_register_generator_ce(void) /* {{{ */
 ```C
 typedef struct _zend_generator zend_generator;
 struct _zend_generator {
-	zend_object std;
-	zend_object_iterator *iterator;
-	/* 生成器函数的execute_data */
-	zend_execute_data *execute_data;
-	/* VM stack */
-	zend_vm_stack stack;
-	/* 当前元素的值 */
-	zval value;
-	/* 当前元素的键 */
-	zval key;
-	/* 返回值 */
-	zval retval;
-	/* 用来保存send()的值 */
-	zval *send_target;
-	/* 当前使用的最大自增key */
-	zend_long largest_used_integer_key;
-	/* yield from才用到，数组和非生成器的Traversables类用到，后面会介绍 */
-	zval values;
-	/* Node of waiting generators when multiple "yield *" expressions are nested. */
-	zend_generator_node node;
-	/* Fake execute_data for stacktraces */
-	zend_execute_data execute_fake;
-	/* 标识 */
-	zend_uchar flags;
+    zend_object std;
+    zend_object_iterator *iterator;
+    /* 生成器函数的execute_data */
+    zend_execute_data *execute_data;
+    /* VM stack */
+    zend_vm_stack stack;
+    /* 当前元素的值 */
+    zval value;
+    /* 当前元素的键 */
+    zval key;
+    /* 返回值 */
+    zval retval;
+    /* 用来保存send()的值 */
+    zval *send_target;
+    /* 当前使用的最大自增key */
+    zend_long largest_used_integer_key;
+    /* yield from才用到，数组和非生成器的Traversables类用到，后面会介绍 */
+    zval values;
+    /* Node of waiting generators when multiple "yield *" expressions are nested. */
+    zend_generator_node node;
+    /* Fake execute_data for stacktraces */
+    zend_execute_data execute_fake;
+    /* 标识 */
+    zend_uchar flags;
 };
 ```
 重点介绍几个重要的：
@@ -349,16 +349,16 @@ struct _zend_generator {
 
 ```txt
 expr_without_variable:
-		T_LIST '(' assignment_list ')' '=' expr
-			{ $$ = zend_ast_create(ZEND_AST_ASSIGN, $3, $6); }
-	|	variable '=' expr
-			{ $$ = zend_ast_create(ZEND_AST_ASSIGN, $1, $3); }		
+        T_LIST '(' assignment_list ')' '=' expr
+            { $$ = zend_ast_create(ZEND_AST_ASSIGN, $3, $6); }
+    |    variable '=' expr
+            { $$ = zend_ast_create(ZEND_AST_ASSIGN, $1, $3); }        
 // ...
 
-	|	T_YIELD { $$ = zend_ast_create(ZEND_AST_YIELD, NULL, NULL); } // 958行 
-	|	T_YIELD expr { $$ = zend_ast_create(ZEND_AST_YIELD, $2, NULL); }
-	|	T_YIELD expr T_DOUBLE_ARROW expr { $$ = zend_ast_create(ZEND_AST_YIELD, $4, $2); }
-	|	T_YIELD_FROM expr { $$ = zend_ast_create(ZEND_AST_YIELD_FROM, $2); }
+    |    T_YIELD { $$ = zend_ast_create(ZEND_AST_YIELD, NULL, NULL); } // 958行 
+    |    T_YIELD expr { $$ = zend_ast_create(ZEND_AST_YIELD, $2, NULL); }
+    |    T_YIELD expr T_DOUBLE_ARROW expr { $$ = zend_ast_create(ZEND_AST_YIELD, $4, $2); }
+    |    T_YIELD_FROM expr { $$ = zend_ast_create(ZEND_AST_YIELD_FROM, $2); }
 ```
 
 从定义可以看出yield允许以下三种语法：
@@ -375,20 +375,20 @@ expr_without_variable:
 ```
 void zend_compile_expr(znode *result, zend_ast *ast) /* {{{ */
 {
-	/* CG(zend_lineno) = ast->lineno; */
-	CG(zend_lineno) = zend_ast_get_lineno(ast);
+    /* CG(zend_lineno) = ast->lineno; */
+    CG(zend_lineno) = zend_ast_get_lineno(ast);
 
-	switch (ast->kind) {
-		case ZEND_AST_ZVAL:
-			ZVAL_COPY(&result->u.constant, zend_ast_get_zval(ast));
-			result->op_type = IS_CONST;
-	// ...
-		case ZEND_AST_YIELD: // 7272行
-			zend_compile_yield(result, ast);
-			return;
-		case ZEND_AST_YIELD_FROM:
-			zend_compile_yield_from(result, ast);
-			return;
+    switch (ast->kind) {
+        case ZEND_AST_ZVAL:
+            ZVAL_COPY(&result->u.constant, zend_ast_get_zval(ast));
+            result->op_type = IS_CONST;
+    // ...
+        case ZEND_AST_YIELD: // 7272行
+            zend_compile_yield(result, ast);
+            return;
+        case ZEND_AST_YIELD_FROM:
+            zend_compile_yield_from(result, ast);
+            return;
     // ...
 }
 /* }}} */
@@ -401,29 +401,29 @@ yield调用的`zend_compile_yield(result, ast)`函数，yield from调用的`zend
 static void zend_mark_function_as_generator() /* {{{ */
 {
     /* 判断是不是函数/方法，不是就报错，也就是yield必须在函数/方法内 */
-	if (!CG(active_op_array)->function_name) {
-		zend_error_noreturn(E_COMPILE_ERROR,
-			"The \"yield\" expression can only be used inside a function");
-	}
-	
-	/* 如果有标识返回类型，则判断返回类型是否正确，只能是Generator及其父类(Traversable/Iterator) */
-	if (CG(active_op_array)->fn_flags & ZEND_ACC_HAS_RETURN_TYPE) {
-		const char *msg = "Generators may only declare a return type of Generator, Iterator or Traversable, %s is not permitted";
-		if (!CG(active_op_array)->arg_info[-1].class_name) {
-			zend_error_noreturn(E_COMPILE_ERROR, msg,
-				zend_get_type_by_const(CG(active_op_array)->arg_info[-1].type_hint));
-		}
-		if (!(ZSTR_LEN(CG(active_op_array)->arg_info[-1].class_name) == sizeof("Traversable")-1
-				&& zend_binary_strcasecmp(ZSTR_VAL(CG(active_op_array)->arg_info[-1].class_name), sizeof("Traversable")-1, "Traversable", sizeof("Traversable")-1) == 0) &&
-			!(ZSTR_LEN(CG(active_op_array)->arg_info[-1].class_name) == sizeof("Iterator")-1
-				&& zend_binary_strcasecmp(ZSTR_VAL(CG(active_op_array)->arg_info[-1].class_name), sizeof("Iterator")-1, "Iterator", sizeof("Iterator")-1) == 0) &&
-			!(ZSTR_LEN(CG(active_op_array)->arg_info[-1].class_name) == sizeof("Generator")-1
-				&& zend_binary_strcasecmp(ZSTR_VAL(CG(active_op_array)->arg_info[-1].class_name), sizeof("Generator")-1, "Generator", sizeof("Generator")-1) == 0)) {
-			zend_error_noreturn(E_COMPILE_ERROR, msg, ZSTR_VAL(CG(active_op_array)->arg_info[-1].class_name));
-		}
-	}
+    if (!CG(active_op_array)->function_name) {
+        zend_error_noreturn(E_COMPILE_ERROR,
+            "The \"yield\" expression can only be used inside a function");
+    }
+    
+    /* 如果有标识返回类型，则判断返回类型是否正确，只能是Generator及其父类(Traversable/Iterator) */
+    if (CG(active_op_array)->fn_flags & ZEND_ACC_HAS_RETURN_TYPE) {
+        const char *msg = "Generators may only declare a return type of Generator, Iterator or Traversable, %s is not permitted";
+        if (!CG(active_op_array)->arg_info[-1].class_name) {
+            zend_error_noreturn(E_COMPILE_ERROR, msg,
+                zend_get_type_by_const(CG(active_op_array)->arg_info[-1].type_hint));
+        }
+        if (!(ZSTR_LEN(CG(active_op_array)->arg_info[-1].class_name) == sizeof("Traversable")-1
+                && zend_binary_strcasecmp(ZSTR_VAL(CG(active_op_array)->arg_info[-1].class_name), sizeof("Traversable")-1, "Traversable", sizeof("Traversable")-1) == 0) &&
+            !(ZSTR_LEN(CG(active_op_array)->arg_info[-1].class_name) == sizeof("Iterator")-1
+                && zend_binary_strcasecmp(ZSTR_VAL(CG(active_op_array)->arg_info[-1].class_name), sizeof("Iterator")-1, "Iterator", sizeof("Iterator")-1) == 0) &&
+            !(ZSTR_LEN(CG(active_op_array)->arg_info[-1].class_name) == sizeof("Generator")-1
+                && zend_binary_strcasecmp(ZSTR_VAL(CG(active_op_array)->arg_info[-1].class_name), sizeof("Generator")-1, "Generator", sizeof("Generator")-1) == 0)) {
+            zend_error_noreturn(E_COMPILE_ERROR, msg, ZSTR_VAL(CG(active_op_array)->arg_info[-1].class_name));
+        }
+    }
 
-	CG(active_op_array)->fn_flags |= ZEND_ACC_GENERATOR; // 标识函数是生成器类型！！！
+    CG(active_op_array)->fn_flags |= ZEND_ACC_GENERATOR; // 标识函数是生成器类型！！！
 }
 /* }}} */
 ```
@@ -435,39 +435,39 @@ static void zend_mark_function_as_generator() /* {{{ */
 ```C
 ZEND_API void zend_generator_create_zval(zend_execute_data *call, zend_op_array *op_array, zval *return_value) /* {{{ */
 {
-	zend_generator *generator;
-	zend_execute_data *current_execute_data;
-	zend_execute_data *execute_data;
-	zend_vm_stack current_stack = EG(vm_stack); // 保存当前的vm_stack，以便后面恢复
+    zend_generator *generator;
+    zend_execute_data *current_execute_data;
+    zend_execute_data *execute_data;
+    zend_vm_stack current_stack = EG(vm_stack); // 保存当前的vm_stack，以便后面恢复
 
-	current_stack->top = EG(vm_stack_top);
+    current_stack->top = EG(vm_stack_top);
 
-	/* 先保存当前执行的execute_data，后面恢复 */
-	current_execute_data = EG(current_execute_data);
-	execute_data = zend_create_generator_execute_data(call, op_array, return_value); // 创建新的execute_data
-	EG(current_execute_data) = current_execute_data; // 恢复之前的execute_data
+    /* 先保存当前执行的execute_data，后面恢复 */
+    current_execute_data = EG(current_execute_data);
+    execute_data = zend_create_generator_execute_data(call, op_array, return_value); // 创建新的execute_data
+    EG(current_execute_data) = current_execute_data; // 恢复之前的execute_data
 
-	object_init_ex(return_value, zend_ce_generator); // 实例化Generator对象，赋给return_value，所以生成器函数返回的是Generator对象。 
+    object_init_ex(return_value, zend_ce_generator); // 实例化Generator对象，赋给return_value，所以生成器函数返回的是Generator对象。 
 
     /* 如果当前执行的是对象方法，则增加对象的引用计数 */
-	if (Z_OBJ(call->This)) {
-		Z_ADDREF(call->This);
-	}
+    if (Z_OBJ(call->This)) {
+        Z_ADDREF(call->This);
+    }
 
-	/* 把上面创建新的execute_data，保存到zend_generator */
-	generator = (zend_generator *) Z_OBJ_P(return_value);
-	generator->execute_data = execute_data;
-	generator->stack = EG(vm_stack);
-	generator->stack->top = EG(vm_stack_top);
-	EG(vm_stack_top) = current_stack->top;
-	EG(vm_stack_end) = current_stack->end;
-	EG(vm_stack) = current_stack;
+    /* 把上面创建新的execute_data，保存到zend_generator */
+    generator = (zend_generator *) Z_OBJ_P(return_value);
+    generator->execute_data = execute_data;
+    generator->stack = EG(vm_stack);
+    generator->stack->top = EG(vm_stack_top);
+    EG(vm_stack_top) = current_stack->top;
+    EG(vm_stack_end) = current_stack->end;
+    EG(vm_stack) = current_stack;
 
-	/* 赋值给生成器函数返回值，真正是zend_generator，为了存储，转为zval类型，后面访问Generator类的时候会介绍 */
-	execute_data->return_value = (zval*)generator;
+    /* 赋值给生成器函数返回值，真正是zend_generator，为了存储，转为zval类型，后面访问Generator类的时候会介绍 */
+    execute_data->return_value = (zval*)generator;
 
-	memset(&generator->execute_fake, 0, sizeof(zend_execute_data));
-	Z_OBJ(generator->execute_fake.This) = (zend_object *) generator;
+    memset(&generator->execute_fake, 0, sizeof(zend_execute_data));
+    Z_OBJ(generator->execute_fake.This) = (zend_object *) generator;
 }
 ```
 
@@ -484,23 +484,23 @@ void zend_compile_yield(znode *result, zend_ast *ast) /* {{{ */
 {
     // ...
     /* 编译key部分 */
-	if (key_ast) {
-		zend_compile_expr(&key_node, key_ast);
-		key_node_ptr = &key_node;
-	}
+    if (key_ast) {
+        zend_compile_expr(&key_node, key_ast);
+        key_node_ptr = &key_node;
+    }
     /* 编译value部分 */
-	if (value_ast) {
-		if (returns_by_ref && zend_is_variable(value_ast) && !zend_is_call(value_ast)) {
-			zend_compile_var(&value_node, value_ast, BP_VAR_REF);
-		} else {
-			zend_compile_expr(&value_node, value_ast);
-		}
-		value_node_ptr = &value_node;
-	}
+    if (value_ast) {
+        if (returns_by_ref && zend_is_variable(value_ast) && !zend_is_call(value_ast)) {
+            zend_compile_var(&value_node, value_ast, BP_VAR_REF);
+        } else {
+            zend_compile_expr(&value_node, value_ast);
+        }
+        value_node_ptr = &value_node;
+    }
     /* 生成opcode为ZEND_YIELD的zend_op结构体，操作数1（OP1）为value ，操作数2（OP2）为key*/
-	opline = zend_emit_op(result, ZEND_YIELD, value_node_ptr, key_node_ptr);
+    opline = zend_emit_op(result, ZEND_YIELD, value_node_ptr, key_node_ptr);
 
-	// ...
+    // ...
 }
 ```
 从上面代码片段可以看出，yield对应的opcode是`ZEND_YIELD`，所以对应的处理函数为`ZEND_YIELD_SPEC_{OP1}_{OP2}_HANDLER`，生成的处理函数很多，但是代码基本都是一样的，都是由Zend/zend_vm_def.h中的`ZEND_VM_HANDLER(160, ZEND_YIELD, CONST|TMP|VAR|CV|UNUSED, CONST|TMP|VAR|CV|UNUSED)`生成的：
@@ -516,54 +516,54 @@ Zend/zend_vm_execute.h（所有处理函数的存放文件）都是通过执行z
 ZEND_VM_HANDLER(160, ZEND_YIELD, CONST|TMP|VAR|CV|UNUSED, CONST|TMP|VAR|CV|UNUSED)
 {
     // ...
-	/* 先销毁原来元素的key和value */
-	zval_ptr_dtor(&generator->value);
-	zval_ptr_dtor(&generator->key);
+    /* 先销毁原来元素的key和value */
+    zval_ptr_dtor(&generator->value);
+    zval_ptr_dtor(&generator->key);
 
     /* 这部分是对value部分的处理 */
-	if (OP1_TYPE != IS_UNUSED) { // 如果操作数1类型不是IS_UNUSED，也就是有返回值(yield value这类型)
-		if (UNEXPECTED(EX(func)->op_array.fn_flags & ZEND_ACC_RETURN_REFERENCE)) {
-		    // 前面一些判断，基本意思就是把值赋给generator->value，也就是生成值，这里就不贴代码了
-		} else { // 如果不是引用类型
-			// 根据不同的类型，把值赋给generator->value，也就是生成值，这里也不贴代码了
-		}
-	} else { // 如果操作数1类型是IS_UNUSED，也就是没有返回值(yield这类型)，则生成值为NULL
-		ZVAL_NULL(&generator->value);
-	}
+    if (OP1_TYPE != IS_UNUSED) { // 如果操作数1类型不是IS_UNUSED，也就是有返回值(yield value这类型)
+        if (UNEXPECTED(EX(func)->op_array.fn_flags & ZEND_ACC_RETURN_REFERENCE)) {
+            // 前面一些判断，基本意思就是把值赋给generator->value，也就是生成值，这里就不贴代码了
+        } else { // 如果不是引用类型
+            // 根据不同的类型，把值赋给generator->value，也就是生成值，这里也不贴代码了
+        }
+    } else { // 如果操作数1类型是IS_UNUSED，也就是没有返回值(yield这类型)，则生成值为NULL
+        ZVAL_NULL(&generator->value);
+    }
 
-	/* 这部分是对key部分的处理  */
-	if (OP2_TYPE != IS_UNUSED) { // 如果操作数2类型不是IS_UNUSED，也就是有返回自定义的key(yield key => value这类型)
-		// 根据不同的类型，把值赋给generator->key，也就是生成自定义的键，这里也不贴代码了
+    /* 这部分是对key部分的处理  */
+    if (OP2_TYPE != IS_UNUSED) { // 如果操作数2类型不是IS_UNUSED，也就是有返回自定义的key(yield key => value这类型)
+        // 根据不同的类型，把值赋给generator->key，也就是生成自定义的键，这里也不贴代码了
 
         /* 如果键的值类型为整型（IS_LONG）且大于当前自增key（largest_used_integer_key），则修改自增key为键的值*/
-		if (Z_TYPE(generator->key) == IS_LONG
-		    && Z_LVAL(generator->key) > generator->largest_used_integer_key
-		) {
-			generator->largest_used_integer_key = Z_LVAL(generator->key);
-		}
-	} else {
-		/* 如果没有自定义key，则把下一个自增的值赋给key */
-		generator->largest_used_integer_key++;
-		ZVAL_LONG(&generator->key, generator->largest_used_integer_key);
-	}
+        if (Z_TYPE(generator->key) == IS_LONG
+            && Z_LVAL(generator->key) > generator->largest_used_integer_key
+        ) {
+            generator->largest_used_integer_key = Z_LVAL(generator->key);
+        }
+    } else {
+        /* 如果没有自定义key，则把下一个自增的值赋给key */
+        generator->largest_used_integer_key++;
+        ZVAL_LONG(&generator->key, generator->largest_used_integer_key);
+    }
 
-	if (RETURN_VALUE_USED(opline)) {
-		/* If the return value of yield is used set the send
-		 * target and initialize it to NULL */
-		generator->send_target = EX_VAR(opline->result.var);
-		ZVAL_NULL(generator->send_target);
-	} else {
-		generator->send_target = NULL;
-	}
+    if (RETURN_VALUE_USED(opline)) {
+        /* If the return value of yield is used set the send
+         * target and initialize it to NULL */
+        generator->send_target = EX_VAR(opline->result.var);
+        ZVAL_NULL(generator->send_target);
+    } else {
+        generator->send_target = NULL;
+    }
 
-	/* 递增到下个op，这样下次继续执行就可以从下个op开始执行了 */
-	ZEND_VM_INC_OPCODE();
+    /* 递增到下个op，这样下次继续执行就可以从下个op开始执行了 */
+    ZEND_VM_INC_OPCODE();
 
-	/* The GOTO VM uses a local opline variable. We need to set the opline
-	 * variable in execute_data so we don't resume at an old position. */
-	SAVE_OPLINE();
+    /* The GOTO VM uses a local opline variable. We need to set the opline
+     * variable in execute_data so we don't resume at an old position. */
+    SAVE_OPLINE();
 
-	ZEND_VM_RETURN(); // 中断执行
+    ZEND_VM_RETURN(); // 中断执行
 }
 ```
 
@@ -602,8 +602,8 @@ ZEND_METHOD(Generator, rewind)
 ZEND_METHOD(Generator, rewind)
 {
     // ...
-	generator = (zend_generator *) Z_OBJ_P(getThis());
-	zend_generator_rewind(generator);
+    generator = (zend_generator *) Z_OBJ_P(getThis());
+    zend_generator_rewind(generator);
 }
 ```
 `Z_OBJ_P(getThis())`，展开来是`(*(&execute_data.This)).value.obj`， 获取的是当前execute_data.This这个zval（类型为object）的object值（zval.value）的地址。但是这里强行转换是不是觉得很奇怪？
@@ -618,18 +618,18 @@ ZEND_METHOD(Generator, rewind)
 ```C
 ZEND_API int _object_and_properties_init(zval *arg, zend_class_entry *class_type, HashTable *properties ZEND_FILE_LINE_DC) /* {{{ */
 {
-	// ...
-	if (class_type->create_object == NULL) {
-		ZVAL_OBJ(arg, zend_objects_new(class_type));
-		if (properties) {
-			object_properties_init_ex(Z_OBJ_P(arg), properties);
-		} else {
-			object_properties_init(Z_OBJ_P(arg), class_type);
-		}
-	} else {
-		ZVAL_OBJ(arg, class_type->create_object(class_type));
-	}
-	return SUCCESS;
+    // ...
+    if (class_type->create_object == NULL) {
+        ZVAL_OBJ(arg, zend_objects_new(class_type));
+        if (properties) {
+            object_properties_init_ex(Z_OBJ_P(arg), properties);
+        } else {
+            object_properties_init(Z_OBJ_P(arg), class_type);
+        }
+    } else {
+        ZVAL_OBJ(arg, class_type->create_object(class_type));
+    }
+    return SUCCESS;
 }
 /* }}} */
 ```
@@ -641,10 +641,10 @@ ZEND_API int _object_and_properties_init(zval *arg, zend_class_entry *class_type
 static zend_object *zend_generator_create(zend_class_entry *class_type) /* {{{ */
 {
     // ... 
-	generator = emalloc(sizeof(zend_generator));
-	memset(generator, 0, sizeof(zend_generator));
+    generator = emalloc(sizeof(zend_generator));
+    memset(generator, 0, sizeof(zend_generator));
     // ...
-	return (zend_object*)generator;
+    return (zend_object*)generator;
 }
 /* }}} */
 ```
@@ -658,11 +658,11 @@ static zend_object *zend_generator_create(zend_class_entry *class_type) /* {{{ *
 ```
 static void inline zend_generator_rewind(zend_generator *generator)
 {
-	zend_generator_ensure_initialized(generator); // 保证generator已经初始化过了
+    zend_generator_ensure_initialized(generator); // 保证generator已经初始化过了
     /* 如果已经yield过了，就不能再rewind */
-	if (!(generator->flags & ZEND_GENERATOR_AT_FIRST_YIELD)) {
-		zend_throw_exception(NULL, "Cannot rewind a generator that was already run", 0);
-	}
+    if (!(generator->flags & ZEND_GENERATOR_AT_FIRST_YIELD)) {
+        zend_throw_exception(NULL, "Cannot rewind a generator that was already run", 0);
+    }
 }
 ```
 
@@ -676,13 +676,13 @@ static void inline zend_generator_rewind(zend_generator *generator)
 ZEND_METHOD(Generator, valid)
 {
     // ...
-	generator = (zend_generator *) Z_OBJ_P(getThis());
+    generator = (zend_generator *) Z_OBJ_P(getThis());
 
-	zend_generator_ensure_initialized(generator);
+    zend_generator_ensure_initialized(generator);
 
-	zend_generator_get_current(generator);
+    zend_generator_get_current(generator);
 
-	RETURN_BOOL(EXPECTED(generator->execute_data != NULL));
+    RETURN_BOOL(EXPECTED(generator->execute_data != NULL));
 }
 ```
 valid也是获取到zend_generator后，调用`zend_generator_get_current()`函数，获取当前需要运行的`zend_generator`，然后判断为`NULL`，以此已经更多的值生成了，这在[zend_generator结构体](#42-zend_generator结构体)中详细说明过。
@@ -694,18 +694,18 @@ valid也是获取到zend_generator后，调用`zend_generator_get_current()`函�
 ```C
 ZEND_METHOD(Generator, current)
 {
-	// ...
-	generator = (zend_generator *) Z_OBJ_P(getThis());
+    // ...
+    generator = (zend_generator *) Z_OBJ_P(getThis());
 
-	zend_generator_ensure_initialized(generator);
+    zend_generator_ensure_initialized(generator);
 
-	root = zend_generator_get_current(generator);
-	if (EXPECTED(generator->execute_data != NULL && Z_TYPE(root->value) != IS_UNDEF)) {
-		zval *value = &root->value;
+    root = zend_generator_get_current(generator);
+    if (EXPECTED(generator->execute_data != NULL && Z_TYPE(root->value) != IS_UNDEF)) {
+        zval *value = &root->value;
 
-		ZVAL_DEREF(value);
-		ZVAL_COPY(return_value, value);
-	}
+        ZVAL_DEREF(value);
+        ZVAL_COPY(return_value, value);
+    }
 }
 ```
 
@@ -719,18 +719,18 @@ ZEND_METHOD(Generator, current)
 ```C
 ZEND_METHOD(Generator, key)
 {
-	// ...
-	generator = (zend_generator *) Z_OBJ_P(getThis());
+    // ...
+    generator = (zend_generator *) Z_OBJ_P(getThis());
 
-	zend_generator_ensure_initialized(generator);
+    zend_generator_ensure_initialized(generator);
 
-	root = zend_generator_get_current(generator);
-	if (EXPECTED(generator->execute_data != NULL && Z_TYPE(root->key) != IS_UNDEF)) {
-		zval *key = &root->key;
+    root = zend_generator_get_current(generator);
+    if (EXPECTED(generator->execute_data != NULL && Z_TYPE(root->key) != IS_UNDEF)) {
+        zval *key = &root->key;
 
-		ZVAL_DEREF(key);
-		ZVAL_COPY(return_value, key);
-	}
+        ZVAL_DEREF(key);
+        ZVAL_COPY(return_value, key);
+    }
 }
 ```
 跟`ZEND_METHOD(Generator, value)`差不多，`zend_generator.key`存储的就是当前元素的键，这在[zend_generator结构体](#42-zend_generator结构体)中详细说明过。
@@ -744,11 +744,11 @@ ZEND_METHOD(Generator, key)
 ZEND_METHOD(Generator, next)
 {
     // ...
-	generator = (zend_generator *) Z_OBJ_P(getThis());
+    generator = (zend_generator *) Z_OBJ_P(getThis());
 
-	zend_generator_ensure_initialized(generator);
+    zend_generator_ensure_initialized(generator);
 
-	zend_generator_resume(generator);
+    zend_generator_resume(generator);
 }
 ```
 主要分析`zend_generator_resume()`函数，这个函数比较重要：
@@ -758,87 +758,87 @@ ZEND_METHOD(Generator, next)
 ```C
 ZEND_API void zend_generator_resume(zend_generator *orig_generator) 
 {
-	zend_generator *generator = zend_generator_get_current(orig_generator); // 获取要执行生成器
+    zend_generator *generator = zend_generator_get_current(orig_generator); // 获取要执行生成器
 
-	/* 如果生成器函数已经结束，则直接返回，不能继续执行 */
-	if (UNEXPECTED(!generator->execute_data)) {
-		return;
-	}
+    /* 如果生成器函数已经结束，则直接返回，不能继续执行 */
+    if (UNEXPECTED(!generator->execute_data)) {
+        return;
+    }
 
 try_again: // 这个标签是个yield from用的，解析完yield from表达式，需要生成（yield）一个值。
     /* 如果有ZEND_GENERATOR_CURRENTLY_RUNNING标识，则表示已经运行，已经运行的不能再调用这方法继续运行 */
-	if (generator->flags & ZEND_GENERATOR_CURRENTLY_RUNNING) {
-		zend_throw_error(NULL, "Cannot resume an already running generator");
-		return;
-	}
+    if (generator->flags & ZEND_GENERATOR_CURRENTLY_RUNNING) {
+        zend_throw_error(NULL, "Cannot resume an already running generator");
+        return;
+    }
 
-	if (UNEXPECTED((orig_generator->flags & ZEND_GENERATOR_DO_INIT) != 0 && !Z_ISUNDEF(generator->value))) {
-		/* We must not advance Generator if we yield from a Generator being currently run */
-		return;
-	}
+    if (UNEXPECTED((orig_generator->flags & ZEND_GENERATOR_DO_INIT) != 0 && !Z_ISUNDEF(generator->value))) {
+        /* We must not advance Generator if we yield from a Generator being currently run */
+        return;
+    }
     /* 如果values有值，说明是非生成器类的委托对象产生（yield from）的 */
-	if (UNEXPECTED(!Z_ISUNDEF(generator->values))) {
-		if (EXPECTED(zend_generator_get_next_delegated_value(generator) == SUCCESS)) { // 委托对象有值则直接返回
-			return;
-		}
-		/* yield from没有更多值生成，则继续运行生成器函数后面的代码 */
-	}
+    if (UNEXPECTED(!Z_ISUNDEF(generator->values))) {
+        if (EXPECTED(zend_generator_get_next_delegated_value(generator) == SUCCESS)) { // 委托对象有值则直接返回
+            return;
+        }
+        /* yield from没有更多值生成，则继续运行生成器函数后面的代码 */
+    }
 
-	/* Drop the AT_FIRST_YIELD flag */
-	orig_generator->flags &= ~ZEND_GENERATOR_AT_FIRST_YIELD;
+    /* Drop the AT_FIRST_YIELD flag */
+    orig_generator->flags &= ~ZEND_GENERATOR_AT_FIRST_YIELD;
 
-	{
-		/* 保存当前执行的execute_data上下文和VM栈，以便后面恢复，这在前面已经介绍过了 */
-		zend_execute_data *original_execute_data = EG(current_execute_data);
-		zend_class_entry *original_scope = EG(scope);
-		zend_vm_stack original_stack = EG(vm_stack);
-		original_stack->top = EG(vm_stack_top);
+    {
+        /* 保存当前执行的execute_data上下文和VM栈，以便后面恢复，这在前面已经介绍过了 */
+        zend_execute_data *original_execute_data = EG(current_execute_data);
+        zend_class_entry *original_scope = EG(scope);
+        zend_vm_stack original_stack = EG(vm_stack);
+        original_stack->top = EG(vm_stack_top);
 
-		/* 修改执行器的指针，指向要运行的生成器函数和其相应的VM栈 */
-		EG(current_execute_data) = generator->execute_data;
-		EG(scope) = generator->execute_data->func->common.scope;
-		EG(vm_stack_top) = generator->stack->top;
-		EG(vm_stack_end) = generator->stack->end;
-		EG(vm_stack) = generator->stack;
+        /* 修改执行器的指针，指向要运行的生成器函数和其相应的VM栈 */
+        EG(current_execute_data) = generator->execute_data;
+        EG(scope) = generator->execute_data->func->common.scope;
+        EG(vm_stack_top) = generator->stack->top;
+        EG(vm_stack_end) = generator->stack->end;
+        EG(vm_stack) = generator->stack;
 
-		// ...
+        // ...
 
-		/* 执行生成器函数的代码 */
-		generator->flags |= ZEND_GENERATOR_CURRENTLY_RUNNING;
-		zend_execute_ex(generator->execute_data); // 执行，遇到yield停止继续执行
-		generator->flags &= ~ZEND_GENERATOR_CURRENTLY_RUNNING;
+        /* 执行生成器函数的代码 */
+        generator->flags |= ZEND_GENERATOR_CURRENTLY_RUNNING;
+        zend_execute_ex(generator->execute_data); // 执行，遇到yield停止继续执行
+        generator->flags &= ~ZEND_GENERATOR_CURRENTLY_RUNNING;
 
-		/* 修改VM栈相关的指针，因为上面运行过程中，VM栈不够，会重新申请新的MV栈，所以需要修改相关指针 */
-		if (EXPECTED(generator->execute_data)) {
-			generator->stack = EG(vm_stack);
-			generator->stack->top = EG(vm_stack_top);
-		}
+        /* 修改VM栈相关的指针，因为上面运行过程中，VM栈不够，会重新申请新的MV栈，所以需要修改相关指针 */
+        if (EXPECTED(generator->execute_data)) {
+            generator->stack = EG(vm_stack);
+            generator->stack->top = EG(vm_stack_top);
+        }
 
-		/* 恢复原来保存的execute_data上下文和VM栈 */
-		EG(current_execute_data) = original_execute_data;
-		EG(scope) = original_scope;
-		EG(vm_stack_top) = original_stack->top;
-		EG(vm_stack_end) = original_stack->end;
-		EG(vm_stack) = original_stack;
+        /* 恢复原来保存的execute_data上下文和VM栈 */
+        EG(current_execute_data) = original_execute_data;
+        EG(scope) = original_scope;
+        EG(vm_stack_top) = original_stack->top;
+        EG(vm_stack_end) = original_stack->end;
+        EG(vm_stack) = original_stack;
 
-		/* 处理异常，后面介绍throw()方法时再讲 */
-		if (UNEXPECTED(EG(exception) != NULL)) {
-			if (generator == orig_generator) {
-				zend_generator_close(generator, 0);
-				zend_throw_exception_internal(NULL);
-			} else {
-				generator = zend_generator_get_current(orig_generator);
-				zend_generator_throw_exception(generator, NULL);
-				goto try_again;
-			}
-		}
+        /* 处理异常，后面介绍throw()方法时再讲 */
+        if (UNEXPECTED(EG(exception) != NULL)) {
+            if (generator == orig_generator) {
+                zend_generator_close(generator, 0);
+                zend_throw_exception_internal(NULL);
+            } else {
+                generator = zend_generator_get_current(orig_generator);
+                zend_generator_throw_exception(generator, NULL);
+                goto try_again;
+            }
+        }
 
-		/* yiled from没有生成值时，要重新进入(try_again)生成值 */
-		if (UNEXPECTED((generator != orig_generator && !Z_ISUNDEF(generator->retval)) || (generator->execute_data && (generator->execute_data->opline - 1)->opcode == ZEND_YIELD_FROM))) {
-			generator = zend_generator_get_current(orig_generator);
-			goto try_again;
-		}
-	}
+        /* yiled from没有生成值时，要重新进入(try_again)生成值 */
+        if (UNEXPECTED((generator != orig_generator && !Z_ISUNDEF(generator->retval)) || (generator->execute_data && (generator->execute_data->opline - 1)->opcode == ZEND_YIELD_FROM))) {
+            generator = zend_generator_get_current(orig_generator);
+            goto try_again;
+        }
+    }
 }
 ```
 `zend_generator_resume()`函数，表面意思就是继续运行生成器函数。前面是一些判断，然后保存当前上下文，执行生成器代码，遇到yield返回，然后恢复上下文。至于yield后生成值并保存状态，
@@ -851,27 +851,27 @@ foreach访问生成器对象，其实就是调用`zend_ce_generator->get_iterato
 ```C
 zend_object_iterator *zend_generator_get_iterator(zend_class_entry *ce, zval *object, int by_ref) /* {{{ */
 {
-	zend_object_iterator *iterator;
-	zend_generator *generator = (zend_generator*)Z_OBJ_P(object);
-	
-	if (!generator->execute_data) {
-		zend_throw_exception(NULL, "Cannot traverse an already closed generator", 0);
-		return NULL;
-	}
+    zend_object_iterator *iterator;
+    zend_generator *generator = (zend_generator*)Z_OBJ_P(object);
+    
+    if (!generator->execute_data) {
+        zend_throw_exception(NULL, "Cannot traverse an already closed generator", 0);
+        return NULL;
+    }
 
-	if (UNEXPECTED(by_ref) && !(generator->execute_data->func->op_array.fn_flags & ZEND_ACC_RETURN_REFERENCE)) {
-		zend_throw_exception(NULL, "You can only iterate a generator by-reference if it declared that it yields by-reference", 0);
-		return NULL;
-	}
+    if (UNEXPECTED(by_ref) && !(generator->execute_data->func->op_array.fn_flags & ZEND_ACC_RETURN_REFERENCE)) {
+        zend_throw_exception(NULL, "You can only iterate a generator by-reference if it declared that it yields by-reference", 0);
+        return NULL;
+    }
 
-	iterator = generator->iterator = emalloc(sizeof(zend_object_iterator)); // 申请内存
+    iterator = generator->iterator = emalloc(sizeof(zend_object_iterator)); // 申请内存
 
-	zend_iterator_init(iterator); // 初始化
+    zend_iterator_init(iterator); // 初始化
 
-	iterator->funcs = &zend_generator_iterator_functions; //设置迭代器对象的相关处理函数
-	ZVAL_COPY(&iterator->data, object);
+    iterator->funcs = &zend_generator_iterator_functions; //设置迭代器对象的相关处理函数
+    ZVAL_COPY(&iterator->data, object);
 
-	return iterator;
+    return iterator;
 }
 /* }}} */
 ```
@@ -881,12 +881,12 @@ zend_object_iterator *zend_generator_get_iterator(zend_class_entry *ce, zval *ob
 
 ```C
 static zend_object_iterator_funcs zend_generator_iterator_functions = {
-	zend_generator_iterator_dtor,       // 销毁
-	zend_generator_iterator_valid,      // 判断当前位置是否有效
-	zend_generator_iterator_get_data,   // 获取当前元素
-	zend_generator_iterator_get_key,    // 获取当前元素的键
-	zend_generator_iterator_move_forward, // 向前移动到下一个元素
-	zend_generator_iterator_rewind      // 指向第一个元素
+    zend_generator_iterator_dtor,       // 销毁
+    zend_generator_iterator_valid,      // 判断当前位置是否有效
+    zend_generator_iterator_get_data,   // 获取当前元素
+    zend_generator_iterator_get_key,    // 获取当前元素的键
+    zend_generator_iterator_move_forward, // 向前移动到下一个元素
+    zend_generator_iterator_rewind      // 指向第一个元素
 };
 ```
 
