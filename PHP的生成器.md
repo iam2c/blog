@@ -570,17 +570,19 @@ ZEND_VM_HANDLER(160, ZEND_YIELD, CONST|TMP|VAR|CV|UNUSED, CONST|TMP|VAR|CV|UNUSE
 从上面代码片段可以看出：yield首先生成键和值（本质就是修改zend_generator的key和value），生成完键值后保存状态，然后中断生成器函数的执行。
 
 ## 4.5 生成器对象的访问
-前面两节介绍了Generator类和生成器对象的结构及创建，我们知道生成器对象可以通过foreach访问，也可以单独调用迭代器接口的方法访问。本节介绍这两种方式访问生成器对象的底层实现，两种访问方式都是围绕zend_generator这个结构开展。
+前面两节介绍了Generator类和生成器对象的结构及创建，我们知道生成器对象可以通过foreach访问，也可以单独调用生成器对象接口访问。本节介绍这两种方式访问生成器对象的底层实现，两种访问方式都是围绕zend_generator这个结构开展。
 
-### 4.5.1 使用迭代器接口访问
-先看看迭代器接口有哪些方法：
+### 4.5.1 使用生成器对象接口访问
+前面[《2.4 Generator类》](#24-generator类)已经提到过Generator类实现了Iterator类，主要有以下方法：
 ```php
-Iterator extends Traversable {
-    abstract public mixed current ( void )  // 返回当前元素 
-    abstract public scalar key ( void )     // 返回当前元素的键
-    abstract public void next ( void )      // 向前移动到下一个元素
-    abstract public void rewind ( void )    // 返回到迭代器的第一个元素
-    abstract public boolean valid ( void )  // 检查当前位置是否有效
+Generator implements Iterator {
+    public mixed current ( void )
+    public mixed key ( void )
+    public void next ( void )
+    public void rewind ( void )
+    public mixed send ( mixed $value )
+    public void throw ( Exception $exception )
+    public bool valid ( void )
 }
 ```
 对应C代码的函数如下：
@@ -590,6 +592,8 @@ key     -> ZEND_METHOD(Generator, key)
 next    -> ZEND_METHOD(Generator, next)
 current -> ZEND_METHOD(Generator, current)
 valid   -> ZEND_METHOD(Generator, valid)
+send    -> ZEND_METHOD(Generator, send)
+throw   -> ZEND_METHOD(Generator, throw)
 ```
 
 ZEND_METHOD是内核定义的一个宏，方便阅读和开发，这里不做介绍，底层代码都在Zend/zend_generators.c:767-864。
@@ -843,6 +847,12 @@ try_again: // 这个标签是个yield from用的，解析完yield from表达式�
 ```
 `zend_generator_resume()`函数，表面意思就是继续运行生成器函数。前面是一些判断，然后保存当前上下文，执行生成器代码，遇到yield返回，然后恢复上下文。
 
+#### 4.5.1.6 ZEND_METHOD(Generator, send)
+（未完成）
+
+#### 4.5.1.7 ZEND_METHOD(Generator, throw)
+（未完成）
+
 ### 4.5.2 使用foreach访问
 foreach访问生成器对象，其实就是调用`zend_ce_generator->get_iterator`，这在[Generator类的注册及其存储结构](#41-generator类的注册及其存储结构)中介绍过，这是一个钩子，生成器用的是`zend_generator_get_iterator`，在Zend/zend_generators.c:1069-1093：
 
@@ -875,7 +885,7 @@ zend_generator_iterator_move_forward()  // 向前移动到下一个元素
 zend_generator_iterator_rewind()        // 指向第一个元素
 ```
 
-函数细节就不一一介绍了，跟[《4.5.1 使用迭代器接口访问》](#451-使用迭代器接口访问)的相应函数差不多的。这里我们仅仅分析`zend_generator_iterator_rewind()`函数，其他的都类似：
+函数细节就不一一介绍了，跟[《4.5.1 使用生成器对象接口访问》](#451-使用生成器对象接口访问)的相应函数差不多的。这里我们仅仅分析`zend_generator_iterator_rewind()`函数，其他的都类似：
 
 代码片段4.5.12：
 ```C
