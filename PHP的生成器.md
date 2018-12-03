@@ -225,7 +225,7 @@ foreach ($generator as $value) {
 
 这节只简单介绍了生成器类Generator的用法，如果想要实现更复杂的功能，比较推荐鸟哥翻译的[《在PHP中使用协程实现多任务调度》](http://www.laruence.com/2015/05/28/3038.html)。
 
-# 0x04 生成器的底层实现
+# 0x03 生成器的底层实现
 
 从前面几节我们初步知道生成器函数跟别的函数不一样，普通函数在返回返回时，除了静态变量外其他的都会被销毁，下次进来还是新的状态，也就是不会保存状态值，但生成器函数每次yield是会保存状态，包括变量值和运行位置，下次调用时从上次运行的位置后面继续运行。了解Generator的运行机制，需要对Zend VM有一定了解，可以先阅读这篇文章[《Zend引擎执行流程》](https://github.com/pangudashu/php7-internal/blob/master/3/zend_executor.md)。
 
@@ -242,14 +242,14 @@ foreach ($generator as $value) {
 3. Zend/xxx.c:767-864表示Zend目录下的xxx.c文件，行数为767至864行。
 
 
-## 4.1 Generator类的注册及其存储结构
+## 3.1 Generator类的注册及其存储结构
 先从数据结构入手，类和对象底层的结构分别为：`zend_class_entry` 和`zend_object`。类产生在是编译时，而对象产生是在运行时。Generator是一个内置类，具有跟其他类共同的性质，但也有自己不同的特性。
 
 本文不会介绍类和对象的内部实现，感兴趣的可以阅读[《面向对象实现-类》](https://github.com/pangudashu/php7-internal/blob/master/3/zend_class.md)和[《面向对象实现-对象》](https://github.com/pangudashu/php7-internal/blob/master/3/zend_object.md)。如果你对这些知识不太了解，请先阅读上面两篇文章，以便更好地理解后面的内容。
 
 内置类在PHP模块初始化（MINIT）的时候就注册了。调用路径为：ZEND_MINIT_FUNCTION(core) -> zend_register_default_classes() -> zend_register_generator_ce()：
 
-代码片段4.1.1：
+代码片段3.1.1：
 
 ```C
 void zend_register_generator_ce(void) /* {{{ */
@@ -282,15 +282,15 @@ void zend_register_generator_ce(void) /* {{{ */
 }
 ```
 
-从**代码片段4.1.1**可以看出：
+从**代码片段3.1.1**可以看出：
 1. Generator类实现了Iterator接口，但有些方法和Iterator默认的方法不太一样。比如不能序列化/反序列化、遍历方法（getIterator）不一样等。
 2. Generator类不能被继承。
 3. Generator类的实例不能被克隆等。
 
-## 4.2 zend_generator结构体
+## 3.2 zend_generator结构体
 在介绍后面的内容之前，我觉得有必要先了解zend_generator这个结构体，因为底层代码基本都是围绕着这个结构体来开展的。
 
-代码片段4.2.1：
+代码片段3.2.1：
 
 ```C
 typedef struct _zend_generator zend_generator;
@@ -323,7 +323,7 @@ struct _zend_generator {
 ```
 重点介绍几个重要的：
 *  execute_data：生成器函数的上下文execute_data，包括当前运行到的位置、变量等状态信息，底层EX宏就是访问这个结构的成员。如果这个为NULL，则表明该生成器已经结束，也就是没有更多的值生成了。当生成器函数return时（没有显式return底层默认return NULL），execute_data变为NULL，后面会介绍。
-*  vm_stack：VM栈，这个会在[生成器对象的创建](#43-generator对象的创建)中详细介绍。
+*  vm_stack：VM栈，这个会在[《3.3 生成器对象的创建》](#33-generator对象的创建)中详细介绍。
 *  key：当前元素的key，每次yield都会更新此值，如果yield没有指定key（也就是yield $key => $value形式），则使用largest_used_integer_key值。
 *  value：当前元素的value，也就是生成的值，每次yield都会更新此值。
 *  retval：生成器的返回值，也就是return返回的值，可以通过Generator::getReturn()获取。
@@ -332,20 +332,20 @@ struct _zend_generator {
 *  values：yield from委托对象时用到；yield from生成器不会存储在这里，使用后面的node存储关系。
 *  node：存储生成器与其委托对象的关系，这个数据结构有点复杂，暂时不做介绍。
 
-## 4.3 生成器对象的创建
+## 3.3 生成器对象的创建
 从生成器语法可以看出，生成器函数（方法）具有：
 1. 必须是个函数
 2. 函数有yield关键字
 3. 调用生成器函数返回生成器对象
 
-### 4.3.1 编译阶段
+### 3.3.1 编译阶段
 先从编译PHP代码开始分析，PHP7会先把PHP代码编译成AST（Abstract Syntax Tree，抽象语法生成树），然后再生成opcode数组，每条opcode就是一条指令，每条指令都有相应的处理函数（handler）。这里面细讲起来篇幅很长，建议阅读[《PHP代码的编译》](https://github.com/pangudashu/php7-internal/blob/master/3/zend_compile.md)、[《词法解析、语法解析》](https://github.com/pangudashu/php7-internal/blob/master/3/zend_compile_parse.md)和[《抽象语法树编译流程》](https://github.com/pangudashu/php7-internal/blob/master/3/zend_compile_opcode.md)这几篇文章。
 
 先来看第一个特征：必须是个函数。函数的编译，比较复杂，不是本文的重点，需要了解可以阅读[《函数实现》](https://github.com/pangudashu/php7-internal/blob/master/3/function_implement.md)。函数的开始先标识`CG(active_op_array)`，展开是`compiler_globals.active_op_array`，这是一个`zend_op_array`结构，在PHP中，每一个也就是独立的代码段（函数/方法/全局代码段）都会编译成一个`zend_op_array`，生成的opcode数组就存在`zend_op_array.opcodes`。
 
 再来看第二个特征：函数有yield关键字。在词法语法分析阶段，如果遇到函数里面的表达式有yield，则会标识为生成器函数。看词法语法过程，在Zend/zend_language_parser.y:855：
 
-代码片段4.3.1：
+代码片段3.3.1：
 
 ```txt
 expr_without_variable:
@@ -368,9 +368,9 @@ expr_without_variable:
 
 第一种没有写返回值，则默认返回值为NULL；第二种仅仅返回value，key则为自增的key；第三种返回自定义的key和value。
 
-词法语法分析器扫描到yield会调用`zend_ast_create()`函数（Zend/zend_ast.c:135-144），得到类型（zend_ast->kind）为`ZEND_AST_YIELD`或者`ZEND_AST_YIELD_FROM`的zend_ast结构体。从**代码片段4.3.1**可以看出：`T_YIELD/T_YIELD_FROM`会被当成`expr_without_variable`，也就是表达式。接着，我们看看表达式的编译，在Zend/zend_compile.c:1794的`zend_compile_expr()`函数：
+词法语法分析器扫描到yield会调用`zend_ast_create()`函数（Zend/zend_ast.c:135-144），得到类型（zend_ast->kind）为`ZEND_AST_YIELD`或者`ZEND_AST_YIELD_FROM`的zend_ast结构体。从**代码片段3.3.1**可以看出：`T_YIELD/T_YIELD_FROM`会被当成`expr_without_variable`，也就是表达式。接着，我们看看表达式的编译，在Zend/zend_compile.c:1794的`zend_compile_expr()`函数：
 
-代码片段4.3.2：
+代码片段3.3.2：
 
 ```
 void zend_compile_expr(znode *result, zend_ast *ast) /* {{{ */
@@ -395,7 +395,7 @@ void zend_compile_expr(znode *result, zend_ast *ast) /* {{{ */
 ```
 yield调用的`zend_compile_yield(result, ast)`函数，yield from调用的`zend_compile_yield_from(result, ast)`函数，这两个函数都会调用`zend_mark_function_as_generator()`，在Zend/zend_compile.c:1145：
 
-代码片段4.3.3：
+代码片段3.3.3：
 
 ```C
 static void zend_mark_function_as_generator() /* {{{ */
@@ -427,10 +427,10 @@ static void zend_mark_function_as_generator() /* {{{ */
 }
 /* }}} */
 ```
-### 4.3.2 执行阶段
+### 3.3.2 执行阶段
 前两个特征都是在编译阶段，生成器函数编译完，得到的opcode为`DO_FCALL/DO_FCALL_BY_NAME`，解析opcode，得到对应的处理函数（handler）为`ZEND_DO_FCALL_BY_NAME_SPEC_HANDLER/ZEND_DO_FCALL_BY_NAME_SPEC_HANDLER`，这两个函数对于生成器处理基本是相同的，最终会调用`zend_generator_create_zval()`函数：
 
-代码片段4.3.4：
+代码片段3.3.4：
 
 ```C
 ZEND_API void zend_generator_create_zval(zend_execute_data *call, zend_op_array *op_array, zval *return_value) /* {{{ */
@@ -474,11 +474,11 @@ ZEND_API void zend_generator_create_zval(zend_execute_data *call, zend_op_array 
 通过上面的代码片段可以知道：生成器调用时，函数的返回值返回了一个生成器对象，这就是上面提到的第三个特征。另外会申请自己的VM栈（vm_stack）跟原来的VM栈分离开来，互不干扰，每次执行生成器函数代码时只要修改executor_globals（EG）相应指针就可以切换到生成器函数自己的VM栈，这样就恢复到了生成器函数之前的状态。通常，execute_data在VM栈上分配（因为它实际上不进行任何内存分配，所以很快）。对于生成器，这不是最理想的，因为每次执行被暂停或恢复时都必须来回复制（相当大）的结构。 这就是为什么对于生成器，使用单独的VM栈分配执行上下文，从而允许仅通过替换指针来保存和恢复它。
 
 
-## 4.4 yield生成值
-[生成器对象的创建](#43-generator对象的创建)中提到yield是一个表达式，
+## 3.4 yield生成值
+[《3.3生成器对象的创建》](#33-generator对象的创建)中提到yield是一个表达式，
 编译的时候最终会调用`zend_compile_yield()`函数，在Zend/compile.c:6337-6368：
 
-代码片段 4.4.1：
+代码片段 3.4.1：
 ```C
 void zend_compile_yield(znode *result, zend_ast *ast) /* {{{ */
 {
@@ -511,7 +511,7 @@ void zend_compile_yield(znode *result, zend_ast *ast) /* {{{ */
 
 Zend/zend_vm_execute.h（所有处理函数的存放文件）都是通过执行zend_vm_gen.php根据Zend/zend_vm_def.h的定义生成的。下面我们看一下这个定义函数：
 
-代码片段 4.4.2：
+代码片段 3.4.2：
 ```C
 ZEND_VM_HANDLER(160, ZEND_YIELD, CONST|TMP|VAR|CV|UNUSED, CONST|TMP|VAR|CV|UNUSED)
 {
@@ -569,10 +569,10 @@ ZEND_VM_HANDLER(160, ZEND_YIELD, CONST|TMP|VAR|CV|UNUSED, CONST|TMP|VAR|CV|UNUSE
 
 从上面代码片段可以看出：yield首先生成键和值（本质就是修改zend_generator的key和value），生成完键值后保存状态，然后中断生成器函数的执行。
 
-## 4.5 生成器对象的访问
+## 3.5 生成器对象的访问
 前面两节介绍了Generator类和生成器对象的结构及创建，我们知道生成器对象可以通过foreach访问，也可以单独调用生成器对象接口访问。本节介绍这两种方式访问生成器对象的底层实现，两种访问方式都是围绕zend_generator这个结构开展。
 
-### 4.5.1 使用生成器对象接口访问
+### 3.5.1 使用生成器对象接口访问
 前面[《2.4 Generator类》](#24-generator类)已经提到过Generator类实现了Iterator类，主要有以下方法：
 ```php
 Generator implements Iterator {
@@ -598,9 +598,9 @@ throw   -> ZEND_METHOD(Generator, throw)
 
 ZEND_METHOD是内核定义的一个宏，方便阅读和开发，这里不做介绍，底层代码都在Zend/zend_generators.c:767-864。
 
-#### 4.5.1.1 ZEND_METHOD(Generator, rewind)
+#### 3.5.1.1 ZEND_METHOD(Generator, rewind)
 ZEND_METHOD(Generator, rewind)
-代码片段4.5.1：
+代码片段3.5.1：
 
 ```
 ZEND_METHOD(Generator, rewind)
@@ -612,12 +612,12 @@ ZEND_METHOD(Generator, rewind)
 ```
 `Z_OBJ_P(getThis())`，展开来是`(*(&execute_data.This)).value.obj`， 获取的是当前execute_data.This这个zval（类型为object）的object值（zval.value）的地址。但是这里强行转换是不是觉得很奇怪？
 
-还记得**代码片段4.3.6**中提到：
+还记得**代码片段3.3.6**中提到：
 > object_init_ex(return_value, zend_ce_generator); // 实例化生成器对象，赋给return_value，所以生成器函数返回的是生成器对象。 
 
 初始化函数`object_init_ex()`最终会调用`_object_and_properties_init()`函数，在Zend/zend_API.c:1275-1310：
 
-代码片段4.5.2：
+代码片段3.5.2：
 
 ```C
 ZEND_API int _object_and_properties_init(zval *arg, zend_class_entry *class_type, HashTable *properties ZEND_FILE_LINE_DC) /* {{{ */
@@ -637,9 +637,9 @@ ZEND_API int _object_and_properties_init(zval *arg, zend_class_entry *class_type
 }
 /* }}} */
 ```
-从**代码片段4.4.2**可以看出，如果`zend_class_entry`定义有`create_object()`函数，那么会调用`create_object()`函数。而zend_ce_generator是有定义有`create_object()`函数，该函数为`zend_generator_create()`，参见[4.1 Generator类的注册及其存储结构](#41-generator类的注册及其存储结构)：
+从**代码片段3.4.2**可以看出，如果`zend_class_entry`定义有`create_object()`函数，那么会调用`create_object()`函数。而zend_ce_generator是有定义有`create_object()`函数，该函数为`zend_generator_create()`，参见[《3.1 Generator类的注册及其存储结构》](#31-generator类的注册及其存储结构)：
 
-代码片段4.5.3：
+代码片段3.5.3：
 
 ```C
 static zend_object *zend_generator_create(zend_class_entry *class_type) /* {{{ */
@@ -657,7 +657,7 @@ static zend_object *zend_generator_create(zend_class_entry *class_type) /* {{{ *
 
 回到正题，`ZEND_METHOD(Generator, rewind)`得到zend_generator后，调用`zend_generator_rewind()`：
 
-代码片段4.5.4：
+代码片段3.5.4：
 
 ```
 static void inline zend_generator_rewind(zend_generator *generator)
@@ -672,10 +672,10 @@ static void inline zend_generator_rewind(zend_generator *generator)
 
 如果yield过了，则不能再rewind，也就是不能再用foreach遍历，因为foreach也会调用rewind，这个后面再介绍。
 
-#### 4.5.1.2 ZEND_METHOD(Generator, valid)
+#### 3.5.1.2 ZEND_METHOD(Generator, valid)
 `ZEND_METHOD(Generator, valid)`，检查当前位置是否有效，如果无效，foreach会停止遍历。
 
-代码片段4.5.5：
+代码片段3.5.5：
 ```C
 ZEND_METHOD(Generator, valid)
 {
@@ -689,12 +689,12 @@ ZEND_METHOD(Generator, valid)
     RETURN_BOOL(EXPECTED(generator->execute_data != NULL));
 }
 ```
-valid也是获取到zend_generator后，调用`zend_generator_get_current()`函数，获取当前需要运行的`zend_generator`，然后判断为`NULL`，以此已经更多的值生成了，这在[zend_generator结构体](#42-zend_generator结构体)中详细说明过。
+valid也是获取到zend_generator后，调用`zend_generator_get_current()`函数，获取当前需要运行的`zend_generator`，然后判断为`NULL`，以此已经更多的值生成了，这在[《3.2 zend_generator结构体》](#32-zend_generator结构体)中详细说明过。
 
-#### 4.5.1.3 ZEND_METHOD(Generator, current)
+#### 3.5.1.3 ZEND_METHOD(Generator, current)
 `ZEND_METHOD(Generator, current)`获取当前元素的值。
 
-代码片段4.5.6：
+代码片段3.5.6：
 ```C
 ZEND_METHOD(Generator, current)
 {
@@ -715,10 +715,10 @@ ZEND_METHOD(Generator, current)
 
 和valid方法一样，也是先获取到zend_generator，然后判断生成器函数是否结束（`generator->execute_data != NULL`）并且有值（`Z_TYPE(root->value) != IS_UNDEF`），然后把值返回。
 
-#### 4.5.1.4 ZEND_METHOD(Generator, key)
+#### 3.5.1.4 ZEND_METHOD(Generator, key)
 `ZEND_METHOD(Generator, key)`获取当前元素的键，也就是yield生成值时的key，没有指定会使用自增的key，即`zend_generator.largest_used_integer_key`。
 
-代码片段4.5.7：
+代码片段3.5.7：
 
 ```C
 ZEND_METHOD(Generator, key)
@@ -737,12 +737,12 @@ ZEND_METHOD(Generator, key)
     }
 }
 ```
-跟`ZEND_METHOD(Generator, value)`差不多，`zend_generator.key`存储的就是当前元素的键，这在[zend_generator结构体](#42-zend_generator结构体)中详细说明过。
+跟`ZEND_METHOD(Generator, value)`差不多，`zend_generator.key`存储的就是当前元素的键，这在[《3.2 zend_generator结构体》](#32-zend_generator结构体)中详细说明过。
 
-#### 4.5.1.5 ZEND_METHOD(Generator, next)
+#### 3.5.1.5 ZEND_METHOD(Generator, next)
 `ZEND_METHOD(Generator, next)`向前移动到下一个元素，也就是执行到下一个yield *。
 
-代码片段4.5.8：
+代码片段3.5.8：
 
 ```C
 ZEND_METHOD(Generator, next)
@@ -757,7 +757,7 @@ ZEND_METHOD(Generator, next)
 ```
 主要分析`zend_generator_resume()`函数，这个函数比较重要：
 
-代码片段4.5.9：
+代码片段3.5.9：
 
 ```C
 ZEND_API void zend_generator_resume(zend_generator *orig_generator) 
@@ -847,16 +847,16 @@ try_again: // 这个标签是个yield from用的，解析完yield from表达式�
 ```
 `zend_generator_resume()`函数，表面意思就是继续运行生成器函数。前面是一些判断，然后保存当前上下文，执行生成器代码，遇到yield返回，然后恢复上下文。
 
-#### 4.5.1.6 ZEND_METHOD(Generator, send)
+#### 3.5.1.6 ZEND_METHOD(Generator, send)
 （未完成）
 
-#### 4.5.1.7 ZEND_METHOD(Generator, throw)
+#### 3.5.1.7 ZEND_METHOD(Generator, throw)
 （未完成）
 
-### 4.5.2 使用foreach访问
-foreach访问生成器对象，其实就是调用`zend_ce_generator->get_iterator`，这在[Generator类的注册及其存储结构](#41-generator类的注册及其存储结构)中介绍过，这是一个钩子，生成器用的是`zend_generator_get_iterator`，在Zend/zend_generators.c:1069-1093：
+### 3.5.2 使用foreach访问
+foreach访问生成器对象，其实就是调用`zend_ce_generator->get_iterator`，这在[《3.1Generator类的注册及其存储结构》](#31-generator类的注册及其存储结构)中介绍过，这是一个钩子，生成器用的是`zend_generator_get_iterator`，在Zend/zend_generators.c:1069-1093：
 
-代码片段4.5.10：
+代码片段3.5.10：
 
 ```C
 zend_object_iterator *zend_generator_get_iterator(zend_class_entry *ce, zval *object, int by_ref) /* {{{ */
@@ -875,7 +875,7 @@ zend_object_iterator *zend_generator_get_iterator(zend_class_entry *ce, zval *ob
 ```
 `zend_generator_get_iterator()`把迭代器对象的相关处理函数设置为`zend_generator_iterator_functions`，使得迭代生成器对象是使用相应的自定义函数，主要函数有：
 
-代码片段4.5.11：
+代码片段3.5.11：
 
 ```C
 zend_generator_iterator_valid()         // 判断当前位置是否有效
@@ -885,9 +885,9 @@ zend_generator_iterator_move_forward()  // 向前移动到下一个元素
 zend_generator_iterator_rewind()        // 指向第一个元素
 ```
 
-函数细节就不一一介绍了，跟[《4.5.1 使用生成器对象接口访问》](#451-使用生成器对象接口访问)的相应函数差不多的。这里我们仅仅分析`zend_generator_iterator_rewind()`函数，其他的都类似：
+函数细节就不一一介绍了，跟[《3.5.1 使用生成器对象接口访问》](#351-使用生成器对象接口访问)的相应函数差不多的。这里我们仅仅分析`zend_generator_iterator_rewind()`函数，其他的都类似：
 
-代码片段4.5.12：
+代码片段3.5.12：
 ```C
 static void zend_generator_iterator_rewind(zend_object_iterator *iterator) /* {{{ */
 {
@@ -897,4 +897,4 @@ static void zend_generator_iterator_rewind(zend_object_iterator *iterator) /* {{
 }
 ```
 
-因为在初始化的时候已经把`zend_generator`赋给`iterator->data`，详见**代码片段4.5.10**，所以这里可以从iterator拿到zend_generator对象，其他几个函数亦是如此。`zend_generator_rewind()`函数在[ZEND_METHOD(Generator, rewind)](#4511-zend_methodgenerator-rewind)已经介绍过了，这里就不多说了。
+因为在初始化的时候已经把`zend_generator`赋给`iterator->data`，详见**代码片段3.5.10**，所以这里可以从iterator拿到zend_generator对象，其他几个函数亦是如此。`zend_generator_rewind()`函数在[ZEND_METHOD(Generator, rewind)](#3511-zend_methodgenerator-rewind)已经介绍过了，这里就不多说了。
