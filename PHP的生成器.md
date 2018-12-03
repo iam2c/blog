@@ -14,7 +14,7 @@
     - 2.2 [生成器对象](#22-生成器对象)
     - 2.3 [生成器语法](#23-生成器语法)
         - [2.3.1 yield关键字](#231-yield关键字)
-        - [[2.3.2 yield from](#232-yield-from)
+        - [2.3.2 yield from](#232-yield-from)
     - 2.4 [Generator类](#24-generator类)
     - 2.5 [Generator方法](#25-generator方法)
         - [2.5.1 Generator::__wakeup()](#251-generator__wakeup)
