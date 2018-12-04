@@ -886,7 +886,7 @@ foreach访问生成器对象，其实就是调用`zend_ce_generator->get_iterato
 zend_object_iterator *zend_generator_get_iterator(zend_class_entry *ce, zval *object, int by_ref) /* {{{ */
 {
     zend_object_iterator *iterator;
-	zend_generator *generator = (zend_generator*)Z_OBJ_P(object);
+    zend_generator *generator = (zend_generator*)Z_OBJ_P(object);
     // ...
     zend_iterator_init(iterator); // 初始化
 
@@ -915,10 +915,96 @@ zend_generator_iterator_rewind()        // 指向第一个元素
 ```C
 static void zend_generator_iterator_rewind(zend_object_iterator *iterator) /* {{{ */
 {
-	zend_generator *generator = (zend_generator*)Z_OBJ(iterator->data);
+    zend_generator *generator = (zend_generator*)Z_OBJ(iterator->data);
 
-	zend_generator_rewind(generator);
+    zend_generator_rewind(generator);
 }
 ```
 
 因为在初始化的时候已经把`zend_generator`赋给`iterator->data`，详见**代码片段3.5.10**，所以这里可以从iterator拿到zend_generator对象，其他几个函数亦是如此。`zend_generator_rewind()`函数在[ZEND_METHOD(Generator, rewind)](#3511-zend_methodgenerator-rewind)已经介绍过了，这里就不多说了。
+
+## 3.6 生成器的终止
+从生成器语法我们知道：return语句会终止生成器的执行，如果没有显式return，则默认会在结束return null。生成器里面的return语句的opcode是ZEND_GENERATOR_RETURN，而return语句的opcode应该是ZEND_RETURN，这个处理是`pass_two()`函数里：
+
+代码片段3.6.1
+
+```C
+ZEND_API int pass_two(zend_op_array *op_array)
+{
+    // ...
+    opline = op_array->opcodes;
+    end = opline + op_array->last;
+    while (opline < end) {
+        switch (opline->opcode) {
+            case ZEND_RETURN:
+            case ZEND_RETURN_BY_REF:
+                if (op_array->fn_flags & ZEND_ACC_GENERATOR) {
+                    opline->opcode = ZEND_GENERATOR_RETURN;
+                }
+                break;
+        }
+        // ...
+    }
+    // ...
+}
+```
+从上面代码可以看出，如果是生成器函数里面的return则把opcode由ZEND_RETURN修改为ZEND_GENERATOR_RETURN，对应的处理函数定义为`ZEND_VM_HANDLER(161, ZEND_GENERATOR_RETURN, CONST|TMP|VAR|CV, ANY)`：
+```
+ZEND_VM_HANDLER(161, ZEND_GENERATOR_RETURN, CONST|TMP|VAR|CV, ANY)
+{
+    // ...
+    zend_generator *generator = zend_get_running_generator(execute_data); // 获取当前运行的生成器函数
+    // ...
+    retval = GET_OP1_ZVAL_PTR(BP_VAR_R);
+    /* 不同操作值类型不同处理，但都是赋给给retval，后面可以使用getReturn()方法获取返回值 */
+    if (OP1_TYPE == IS_CONST || OP1_TYPE == IS_TMP_VAR) {
+        ZVAL_COPY_VALUE(&generator->retval, retval);
+        // ... 
+    } else if (OP1_TYPE == IS_CV) {
+        ZVAL_DEREF(retval);
+        ZVAL_COPY(&generator->retval, retval);
+    } else /* if (OP1_TYPE == IS_VAR) */ {
+        if (UNEXPECTED(Z_ISREF_P(retval))) {
+            // ...
+            ZVAL_COPY_VALUE(&generator->retval, retval);
+            // ...
+        } else {
+            ZVAL_COPY_VALUE(&generator->retval, retval); // 
+        }
+    }
+
+    /* 关闭生成器，释放资源（包括申请的VM栈） */
+    zend_generator_close(generator, 1);
+
+    /* 执行器返回 */
+    ZEND_VM_RETURN();
+}
+```
+前面是根据不同类型，把值赋给retval，后面调用`zend_generator_close()`关闭生成器，释放资源，我们来看看这个函数：
+```C
+ZEND_API void zend_generator_close(zend_generator *generator, zend_bool finished_execution) /* {{{ */
+{
+    if (EXPECTED(generator->execute_data)) {
+        zend_execute_data *execute_data = generator->execute_data;
+        // ...
+        /* 生成器函数执行过程中出现了致命错误，也会执行zend_generator_close(). 但是为啥后面的语句不执行暂时还不清楚 */
+        if (UNEXPECTED(CG(unclean_shutdown))) {
+            generator->execute_data = NULL;
+            return;
+        }
+
+        zend_vm_stack_free_extra_args(generator->execute_data); // 释放额外的参数，也就是参数列表之外的
+        /* return语句的清理工作 */
+        if (UNEXPECTED(!finished_execution)) {
+            zend_generator_cleanup_unfinished_execution(generator, 0);
+        }
+
+        // ...
+        efree(generator->stack); // 释放申请的VM栈
+        generator->execute_data = NULL; // 把execute_data赋值为NULL，这样isValid()就返回FALSE.
+    }
+}
+```
+
+## 3.7 小结
+生成器底层实现仅介绍了yield部分实现，包括yield生成值、生成器的访问以及生成器的终止。底层实现还是很好理解的，基本围绕着zend_generator结构体进行。yield from部分较复杂，目前尚未分析清楚，有兴趣的同学可以分析一下。
